@@ -94,6 +94,8 @@ const AkadPage = () => {
     );
   }
 
+  const hewan = shohibul?.hewan_qurban as any;
+
   if (success) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
