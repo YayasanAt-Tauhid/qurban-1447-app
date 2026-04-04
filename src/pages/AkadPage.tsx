@@ -117,7 +117,7 @@ const AkadPage = () => {
     );
   }
 
-  const hewan = shohibul.hewan_qurban as any;
+  // hewan already declared above
   const isKambing = hewan?.jenis_hewan === "kambing";
   const isSapiKolektif = hewan?.jenis_hewan === "sapi" && hewan?.tipe_kepemilikan === "kolektif";
   const isSapiIndividu = hewan?.jenis_hewan === "sapi" && hewan?.tipe_kepemilikan === "individu";
