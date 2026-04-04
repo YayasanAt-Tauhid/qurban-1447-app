@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      catatan_lapangan: {
+        Row: {
+          catatan: string
+          created_at: string
+          hewan_id: string | null
+          id: string
+          waktu: string
+        }
+        Insert: {
+          catatan: string
+          created_at?: string
+          hewan_id?: string | null
+          id?: string
+          waktu?: string
+        }
+        Update: {
+          catatan?: string
+          created_at?: string
+          hewan_id?: string | null
+          id?: string
+          waktu?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catatan_lapangan_hewan_id_fkey"
+            columns: ["hewan_id"]
+            isOneToOne: false
+            referencedRelation: "hewan_dengan_kuota"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catatan_lapangan_hewan_id_fkey"
+            columns: ["hewan_id"]
+            isOneToOne: false
+            referencedRelation: "hewan_qurban"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hewan_qurban: {
         Row: {
           alamat_penjual: string | null
