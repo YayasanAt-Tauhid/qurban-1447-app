@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { formatRupiah, formatTanggal } from "@/lib/qurban-utils";
 import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const KATEGORI_SUGGESTIONS = ["pembelian hewan", "operasional", "konsumsi", "perlengkapan", "iuran shohibul"];
