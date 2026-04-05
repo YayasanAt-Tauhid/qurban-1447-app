@@ -172,6 +172,7 @@ const PanitiaPage = () => {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       {/* Filters */}
