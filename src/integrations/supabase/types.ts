@@ -56,6 +56,7 @@ export type Database = {
       hewan_qurban: {
         Row: {
           alamat_penjual: string | null
+          biaya_operasional: number
           catatan: string | null
           created_at: string
           estimasi_bobot: number | null
@@ -72,6 +73,7 @@ export type Database = {
           nomor_urut: string
           ras: string | null
           status: Database["public"]["Enums"]["status_hewan"]
+          sumber_hewan: Database["public"]["Enums"]["sumber_hewan"] | null
           tahun: number
           tanggal_booking: string | null
           tipe_kepemilikan: Database["public"]["Enums"]["tipe_kepemilikan"]
@@ -79,6 +81,7 @@ export type Database = {
         }
         Insert: {
           alamat_penjual?: string | null
+          biaya_operasional?: number
           catatan?: string | null
           created_at?: string
           estimasi_bobot?: number | null
@@ -95,6 +98,7 @@ export type Database = {
           nomor_urut: string
           ras?: string | null
           status?: Database["public"]["Enums"]["status_hewan"]
+          sumber_hewan?: Database["public"]["Enums"]["sumber_hewan"] | null
           tahun?: number
           tanggal_booking?: string | null
           tipe_kepemilikan: Database["public"]["Enums"]["tipe_kepemilikan"]
@@ -102,6 +106,7 @@ export type Database = {
         }
         Update: {
           alamat_penjual?: string | null
+          biaya_operasional?: number
           catatan?: string | null
           created_at?: string
           estimasi_bobot?: number | null
@@ -118,6 +123,7 @@ export type Database = {
           nomor_urut?: string
           ras?: string | null
           status?: Database["public"]["Enums"]["status_hewan"]
+          sumber_hewan?: Database["public"]["Enums"]["sumber_hewan"] | null
           tahun?: number
           tanggal_booking?: string | null
           tipe_kepemilikan?: Database["public"]["Enums"]["tipe_kepemilikan"]
@@ -444,6 +450,8 @@ export type Database = {
           ras: string | null
           sisa_kuota: number | null
           status: Database["public"]["Enums"]["status_hewan"] | null
+          sumber_hewan: Database["public"]["Enums"]["sumber_hewan"] | null
+          biaya_operasional: number | null
           tahun: number | null
           tanggal_booking: string | null
           tipe_kepemilikan:
@@ -500,6 +508,7 @@ export type Database = {
       status_hewan: "survei" | "booking" | "lunas"
       status_kupon: "belum_ambil" | "sudah_ambil"
       status_penyembelihan: "sendiri" | "diwakilkan"
+      sumber_hewan: "beli_panitia" | "bawa_sendiri"
       sumber_pendaftaran: "online" | "manual"
       tipe_kepemilikan: "kolektif" | "individu"
       ukuran_seragam: "S" | "M" | "L" | "XL" | "XXL"
