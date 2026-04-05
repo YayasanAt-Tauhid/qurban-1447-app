@@ -153,13 +153,16 @@ const UndianBagian = () => {
   // ── Status per bagian ──
   const { data: statusList } = useQuery<StatusRow[]>({
     queryKey: ["status-bagian", hewanId],
-    queryFn: async () => {
+    queryFn: async (): Promise<StatusRow[]> => {
       const { data, error } = await supabase
         .from("status_bagian")
         .select("id, bagian, status, pemenang_id, catatan_panitia")
         .eq("hewan_id", hewanId!);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).map(row => ({
+        ...row,
+        status: row.status as StatusBagian,
+      }));
     },
     enabled: !!hewanId,
   });
@@ -179,7 +182,7 @@ const UndianBagian = () => {
 
   // ── Helpers ──
   const getStatus = useCallback((bagianId: string): StatusRow | undefined =>
-    statusList?.find(s => s.bagian === bagianId), [statusList]);
+    (statusList as StatusRow[] | undefined)?.find(s => s.bagian === bagianId), [statusList]);
 
   const getPilihan = useCallback((bagianId: string): PilihanRow[] =>
     pilihanList?.filter(p => p.bagian === bagianId) ?? [], [pilihanList]);
@@ -217,7 +220,7 @@ const UndianBagian = () => {
   // ── Mutasi: finalisasi status bagian ──
   const finalisasiStatus = useMutation({
     mutationFn: async ({ bagian, status, pemenangId }: { bagian: string; status: StatusBagian; pemenangId?: string }) => {
-      const existing = statusList?.find(s => s.bagian === bagian);
+      const existing = (statusList as StatusRow[] | undefined)?.find(s => s.bagian === bagian);
       if (existing) {
         await supabase.from("status_bagian").update({ status, pemenang_id: pemenangId ?? null, updated_at: new Date().toISOString() }).eq("id", existing.id);
       } else {
@@ -229,18 +232,32 @@ const UndianBagian = () => {
   });
 
   // ── Aksi: shohibul mengalah ──
+  // FIX: fetch data fresh dari DB setelah delete agar tidak pakai pilihanList
+  // yang masih stale dari closure — ini penyebab hanya 1 orang yang terselect.
   const handleMengalah = async (bagian: string, shohibulId: string) => {
     // Hapus pilihan shohibul ini
     const existing = pilihanList?.find(p => p.shohibul_id === shohibulId && p.bagian === bagian);
     if (existing) {
       await supabase.from("pilihan_bagian").delete().eq("id", existing.id);
-      await qc.invalidateQueries({ queryKey: ["pilihan-bagian", hewanId] });
     }
-    // Cek apakah sisa peminat = 1 → selesai otomatis
-    const sisa = (pilihanList ?? []).filter(p => p.bagian === bagian && p.shohibul_id !== shohibulId);
+
+    // FIX: Ambil data FRESH dari DB, jangan pakai pilihanList dari closure (stale)
+    const { data: freshPilihan } = await supabase
+      .from("pilihan_bagian")
+      .select("id, shohibul_id, bagian")
+      .eq("hewan_id", hewanId!)
+      .eq("bagian", bagian);
+
+    const sisa = (freshPilihan ?? []).filter(p => p.shohibul_id !== shohibulId);
+
+    // Invalidate setelah fetch selesai
+    await qc.invalidateQueries({ queryKey: ["pilihan-bagian", hewanId] });
+
     if (sisa.length === 1) {
       await finalisasiStatus.mutateAsync({ bagian, status: "selesai", pemenangId: sisa[0].shohibul_id });
       toast.success("Musyawarah selesai! Bagian langsung ditetapkan.");
+    } else if (sisa.length === 0) {
+      toast.success(`${getShohibul(shohibulId)?.nama} mengalah. Tidak ada peminat tersisa.`);
     } else {
       toast.success(`${getShohibul(shohibulId)?.nama} mengalah.`);
     }
@@ -288,7 +305,7 @@ const UndianBagian = () => {
   // ── Kirim hasil ke semua WA ──
   const kirimHasil = () => {
     if (!shohibulList || !statusList) return;
-    const selesaiList = statusList.filter(s => s.status === "selesai" && s.pemenang_id);
+    const selesaiList = (statusList as StatusRow[]).filter(s => s.status === "selesai" && s.pemenang_id);
     if (selesaiList.length === 0) { toast.error("Belum ada bagian yang selesai."); return; }
 
     shohibulList.forEach(sh => {
@@ -313,6 +330,7 @@ const UndianBagian = () => {
   const totalShohibul = shohibulList?.length ?? 0;
   const sengketaCount = BAGIAN_KOLEKTIF.filter(b => computeStatus(b.id) === "sengketa").length;
   const selesaiCount  = BAGIAN_KOLEKTIF.filter(b => computeStatus(b.id) === "selesai").length;
+  const kosongCount   = BAGIAN_KOLEKTIF.filter(b => computeStatus(b.id) === "kosong").length;
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-10">
@@ -348,7 +366,7 @@ const UndianBagian = () => {
         <Card className="border-gray-200 bg-gray-50">
           <CardContent className="p-3">
             <p className="text-2xl font-bold text-gray-700">
-              {BAGIAN_KOLEKTIF.filter(b => computeStatus(b.id) === "kosong").length}
+              {kosongCount}
             </p>
             <p className="text-gray-500">Kosong</p>
           </CardContent>
@@ -369,131 +387,272 @@ const UndianBagian = () => {
           <h2 className="font-semibold text-base">Bagian Khusus — Penetapan Resmi</h2>
           <p className="text-xs text-muted-foreground">Pilihkan bagian untuk setiap shohibul. Jika lebih dari 1 orang berminat, gunakan musyawarah atau undian.</p>
         </div>
-        {BAGIAN_KOLEKTIF.map(bagian => {
-          const peminat = getPilihan(bagian.id);
-          const status  = computeStatus(bagian.id);
-          const stRow   = getStatus(bagian.id);
-          const isAnim  = animating === bagian.id;
+        {KATEGORI_BAGIAN.map(kategori => {
+          // Slot-slot aktual untuk kategori ini (dari BAGIAN_KOLEKTIF)
+          const slots = kategori.slots
+            .map(slotId => BAGIAN_KOLEKTIF.find(b => b.id === slotId))
+            .filter(Boolean) as typeof BAGIAN_KOLEKTIF;
+
+          // Untuk kategori single-slot (1 slot), render seperti semula
+          if (slots.length === 1) {
+            const bagian = slots[0];
+            const peminat = getPilihan(bagian.id);
+            const status  = computeStatus(bagian.id);
+            const stRow   = getStatus(bagian.id);
+            const isAnim  = animating === bagian.id;
+
+            return (
+              <Card key={bagian.id} className={`transition-all ${status === "sengketa" ? "border-yellow-300" : status === "selesai" ? "border-green-300" : ""}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm">{kategori.icon} {kategori.label}</span>
+                    </div>
+                    <Badge className={statusColor[status]}>{statusLabel[status]}</Badge>
+                  </div>
+
+                  {isAnim && (
+                    <div className="text-center py-4 bg-blue-50 rounded-lg mb-3">
+                      <p className="text-xs text-blue-500 mb-1">🎲 Mengundi...</p>
+                      <p className="text-xl font-bold text-blue-700 animate-pulse">{animName}</p>
+                    </div>
+                  )}
+
+                  {status === "selesai" && stRow?.pemenang_id && (
+                    <div className="flex items-center gap-2 bg-green-50 rounded-lg p-3 mb-3">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-700">
+                        {getShohibul(stRow.pemenang_id)?.nama}
+                      </span>
+                    </div>
+                  )}
+
+                  {status !== "selesai" && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Pilih shohibul yang menginginkan:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(shohibulList ?? []).map(sh => {
+                          const sudahPilih = peminat.some(p => p.shohibul_id === sh.id);
+                          return (
+                            <button
+                              key={sh.id}
+                              onClick={() => togglePilihan.mutate({ shohibulId: sh.id, bagian: bagian.id })}
+                              className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                                sudahPilih
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-background border-border hover:border-primary/50"
+                              }`}
+                            >
+                              {sh.nama}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {status === "sengketa" && !isAnim && (
+                        <div className="mt-3 p-3 bg-yellow-50 rounded-lg space-y-2">
+                          <div className="flex items-center gap-2 text-yellow-700 text-xs font-medium">
+                            <AlertTriangle className="h-4 w-4" />
+                            {peminat.length} orang menginginkan bagian ini — musyawarah dulu:
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {peminat.map(p => (
+                              <Button
+                                key={p.shohibul_id}
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                                onClick={() => handleMengalah(bagian.id, p.shohibul_id)}
+                              >
+                                {getShohibul(p.shohibul_id)?.nama} mengalah
+                              </Button>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2 pt-1">
+                            <div className="flex-1 h-px bg-yellow-200" />
+                            <span className="text-xs text-yellow-600">jika tidak ada yang mengalah</span>
+                            <div className="flex-1 h-px bg-yellow-200" />
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
+                            onClick={() => handleUndian(bagian.id)}
+                            disabled={!!animating}
+                          >
+                            <Shuffle className="mr-2 h-3 w-3" /> Lakukan Undian
+                          </Button>
+                        </div>
+                      )}
+
+                      {status === "aman" && peminat.length === 1 && (
+                        <div className="mt-2">
+                          <Button
+                            size="sm"
+                            className="text-xs bg-green-600 hover:bg-green-700"
+                            onClick={() => finalisasiStatus.mutate({ bagian: bagian.id, status: "selesai", pemenangId: peminat[0].shohibul_id })}
+                          >
+                            <CheckCircle className="mr-1 h-3 w-3" />
+                            Tetapkan {getShohibul(peminat[0].shohibul_id)?.nama}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {status === "selesai" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs text-muted-foreground mt-1"
+                      onClick={() => finalisasiStatus.mutate({ bagian: bagian.id, status: "kosong" })}
+                    >
+                      Batalkan
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          }
+
+          // Untuk kategori multi-slot (contoh: Tulang Kaki 1-4), render satu card
+          // dengan sub-baris per slot
+          const allSlotSelesai = slots.every(s => computeStatus(s.id) === "selesai");
+          const anySlotSengketa = slots.some(s => computeStatus(s.id) === "sengketa");
+          const cardBorder = anySlotSengketa
+            ? "border-yellow-300"
+            : allSlotSelesai
+            ? "border-green-300"
+            : "";
 
           return (
-            <Card key={bagian.id} className={`transition-all ${status === "sengketa" ? "border-yellow-300" : status === "selesai" ? "border-green-300" : ""}`}>
+            <Card key={kategori.id} className={`transition-all ${cardBorder}`}>
               <CardContent className="p-4">
-                {/* Baris atas: nama + status badge */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm">{bagian.label}</span>
-                    {bagian.bisa_multi && (
-                      <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">bisa multi</span>
-                    )}
-                  </div>
-                  <Badge className={statusColor[status]}>{statusLabel[status]}</Badge>
+                {/* Header kategori */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="font-semibold text-sm">{kategori.icon} {kategori.label}</span>
+                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                    {slots.length} slot
+                  </span>
                 </div>
 
-                {/* Animasi undian */}
-                {isAnim && (
-                  <div className="text-center py-4 bg-blue-50 rounded-lg mb-3">
-                    <p className="text-xs text-blue-500 mb-1">🎲 Mengundi...</p>
-                    <p className="text-xl font-bold text-blue-700 animate-pulse">{animName}</p>
-                  </div>
-                )}
+                {/* Sub-baris per slot */}
+                <div className="space-y-3">
+                  {slots.map((bagian, idx) => {
+                    const peminat = getPilihan(bagian.id);
+                    const status  = computeStatus(bagian.id);
+                    const stRow   = getStatus(bagian.id);
+                    const isAnim  = animating === bagian.id;
 
-                {/* Pemenang */}
-                {status === "selesai" && stRow?.pemenang_id && (
-                  <div className="flex items-center gap-2 bg-green-50 rounded-lg p-3 mb-3">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-700">
-                      {getShohibul(stRow.pemenang_id)?.nama}
-                    </span>
-                  </div>
-                )}
+                    return (
+                      <div key={bagian.id} className={`rounded-lg border p-3 ${status === "sengketa" ? "border-yellow-200 bg-yellow-50/40" : status === "selesai" ? "border-green-200 bg-green-50/40" : "border-border bg-muted/20"}`}>
+                        {/* Slot header */}
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-muted-foreground">Slot {idx + 1}</span>
+                          <Badge className={statusColor[status]}>{statusLabel[status]}</Badge>
+                        </div>
 
-                {/* Pilihan shohibul */}
-                {status !== "selesai" && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Pilih shohibul yang menginginkan:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {(shohibulList ?? []).map(sh => {
-                        const sudahPilih = peminat.some(p => p.shohibul_id === sh.id);
-                        return (
-                          <button
-                            key={sh.id}
-                            onClick={() => togglePilihan.mutate({ shohibulId: sh.id, bagian: bagian.id })}
-                            className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                              sudahPilih
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "bg-background border-border hover:border-primary/50"
-                            }`}
+                        {/* Animasi undian */}
+                        {isAnim && (
+                          <div className="text-center py-3 bg-blue-50 rounded-lg mb-2">
+                            <p className="text-xs text-blue-500 mb-1">🎲 Mengundi...</p>
+                            <p className="text-lg font-bold text-blue-700 animate-pulse">{animName}</p>
+                          </div>
+                        )}
+
+                        {/* Pemenang */}
+                        {status === "selesai" && stRow?.pemenang_id && (
+                          <div className="flex items-center gap-2 bg-green-50 rounded p-2 mb-2">
+                            <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                            <span className="text-xs font-medium text-green-700">
+                              {getShohibul(stRow.pemenang_id)?.nama}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Pilihan shohibul */}
+                        {status !== "selesai" && (
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap gap-1.5">
+                              {(shohibulList ?? []).map(sh => {
+                                const sudahPilih = peminat.some(p => p.shohibul_id === sh.id);
+                                return (
+                                  <button
+                                    key={sh.id}
+                                    onClick={() => togglePilihan.mutate({ shohibulId: sh.id, bagian: bagian.id })}
+                                    className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                                      sudahPilih
+                                        ? "bg-primary text-primary-foreground border-primary"
+                                        : "bg-background border-border hover:border-primary/50"
+                                    }`}
+                                  >
+                                    {sh.nama}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Sengketa */}
+                            {status === "sengketa" && !isAnim && (
+                              <div className="mt-2 p-2 bg-yellow-50 rounded space-y-2">
+                                <div className="flex items-center gap-1.5 text-yellow-700 text-xs font-medium">
+                                  <AlertTriangle className="h-3.5 w-3.5" />
+                                  {peminat.length} orang berminat — musyawarah dulu:
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {peminat.map(p => (
+                                    <Button
+                                      key={p.shohibul_id}
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs h-6 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                                      onClick={() => handleMengalah(bagian.id, p.shohibul_id)}
+                                    >
+                                      {getShohibul(p.shohibul_id)?.nama} mengalah
+                                    </Button>
+                                  ))}
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
+                                  onClick={() => handleUndian(bagian.id)}
+                                  disabled={!!animating}
+                                >
+                                  <Shuffle className="mr-1.5 h-3 w-3" /> Lakukan Undian
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* Aman */}
+                            {status === "aman" && peminat.length === 1 && (
+                              <Button
+                                size="sm"
+                                className="text-xs bg-green-600 hover:bg-green-700 mt-1"
+                                onClick={() => finalisasiStatus.mutate({ bagian: bagian.id, status: "selesai", pemenangId: peminat[0].shohibul_id })}
+                              >
+                                <CheckCircle className="mr-1 h-3 w-3" />
+                                Tetapkan {getShohibul(peminat[0].shohibul_id)?.nama}
+                              </Button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Reset */}
+                        {status === "selesai" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs text-muted-foreground mt-1 h-6"
+                            onClick={() => finalisasiStatus.mutate({ bagian: bagian.id, status: "kosong" })}
                           >
-                            {sh.nama}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Sengketa: tombol musyawarah & undian */}
-                    {status === "sengketa" && !isAnim && (
-                      <div className="mt-3 p-3 bg-yellow-50 rounded-lg space-y-2">
-                        <div className="flex items-center gap-2 text-yellow-700 text-xs font-medium">
-                          <AlertTriangle className="h-4 w-4" />
-                          {peminat.length} orang menginginkan bagian ini — musyawarah dulu:
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {peminat.map(p => (
-                            <Button
-                              key={p.shohibul_id}
-                              size="sm"
-                              variant="outline"
-                              className="text-xs h-7 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
-                              onClick={() => handleMengalah(bagian.id, p.shohibul_id)}
-                            >
-                              {getShohibul(p.shohibul_id)?.nama} mengalah
-                            </Button>
-                          ))}
-                        </div>
-                        <div className="flex items-center gap-2 pt-1">
-                          <div className="flex-1 h-px bg-yellow-200" />
-                          <span className="text-xs text-yellow-600">jika tidak ada yang mengalah</span>
-                          <div className="flex-1 h-px bg-yellow-200" />
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
-                          onClick={() => handleUndian(bagian.id)}
-                          disabled={!!animating}
-                        >
-                          <Shuffle className="mr-2 h-3 w-3" /> Lakukan Undian
-                        </Button>
+                            Batalkan
+                          </Button>
+                        )}
                       </div>
-                    )}
-
-                    {/* Aman: langsung tetapkan */}
-                    {status === "aman" && peminat.length === 1 && (
-                      <div className="mt-2">
-                        <Button
-                          size="sm"
-                          className="text-xs bg-green-600 hover:bg-green-700"
-                          onClick={() => finalisasiStatus.mutate({ bagian: bagian.id, status: "selesai", pemenangId: peminat[0].shohibul_id })}
-                        >
-                          <CheckCircle className="mr-1 h-3 w-3" />
-                          Tetapkan {getShohibul(peminat[0].shohibul_id)?.nama}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Tombol reset jika sudah selesai */}
-                {status === "selesai" && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-xs text-muted-foreground mt-1"
-                    onClick={() => finalisasiStatus.mutate({ bagian: bagian.id, status: "kosong" })}
-                  >
-                    Batalkan
-                  </Button>
-                )}
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
           );
@@ -555,7 +714,7 @@ const UndianBagian = () => {
           <CardHeader><CardTitle className="text-base">📋 Ringkasan Hasil</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             {(shohibulList ?? []).map(sh => {
-              const bagianDapat = (statusList ?? [])
+              const bagianDapat = (statusList as StatusRow[] ?? [])
                 .filter(s => s.status === "selesai" && s.pemenang_id === sh.id)
                 .map(s => BAGIAN_KOLEKTIF.find(b => b.id === s.bagian)?.label ?? s.bagian);
               return (
