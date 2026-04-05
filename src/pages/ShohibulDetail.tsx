@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { formatRupiah, formatTanggal } from "@/lib/qurban-utils";
-import { ArrowLeft, Copy, Edit2, Trash2, X, Save } from "lucide-react";
+import { ArrowLeft, MessageCircle, Edit2, Trash2, X, Save } from "lucide-react";
 import { useState } from "react";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -104,10 +104,16 @@ const ShohibulDetail = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
-  const copyAkadLink = () => {
-    const url = `${window.location.origin}/akad/${id}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Link akad disalin ke clipboard!");
+  const openWhatsApp = () => {
+    const noWa = shohibul?.no_wa?.replace(/\D/g, "");
+    if (!noWa) {
+      toast.error("Nomor WhatsApp tidak tersedia");
+      return;
+    }
+    const normalized = noWa.startsWith("0") ? "62" + noWa.slice(1) : noWa;
+    const akadUrl = `${window.location.origin}/akad/${id}`;
+    const pesan = encodeURIComponent(`Assalamu'alaikum ${shohibul?.nama}, berikut link akad qurban Anda: ${akadUrl}`);
+    window.open(`https://wa.me/${normalized}?text=${pesan}`, "_blank");
   };
 
   const startEdit = () => {
@@ -207,8 +213,8 @@ const ShohibulDetail = () => {
           ) : (
             <div className="space-y-2">
               <Badge variant="destructive">Belum Akad</Badge>
-              <Button size="sm" variant="outline" onClick={copyAkadLink}>
-                <Copy className="mr-2 h-4 w-4" /> Kirim Link Akad
+              <Button size="sm" variant="outline" onClick={openWhatsApp}>
+                <MessageCircle className="mr-2 h-4 w-4" /> Kirim via WhatsApp
               </Button>
             </div>
           )}
