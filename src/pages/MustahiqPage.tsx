@@ -160,7 +160,8 @@ const MustahiqPage = () => {
           isScanProcessingRef.current = true;
 
           try {
-            await scanner.stop();
+            const state = scanner.getState?.();
+            if (state === 2) await scanner.stop();
           } catch {
             isScanProcessingRef.current = false;
             return;
@@ -181,21 +182,18 @@ const MustahiqPage = () => {
       });
     });
     return () => {
-      if (scannerRef.current === scanner) {
-        scanner.stop().catch(() => {});
-        scannerRef.current = null;
-      }
+      stopScanner();
     };
-  }, [showScanner, scanState, scanKey]);
+  }, [showScanner, scanState, scanKey, stopScanner]);
 
   const handleScanAgain = () => {
     resetScanState();
     setScanKey((k) => k + 1);
   };
 
-  const handleCloseScanDialog = (open: boolean) => {
+  const handleCloseScanDialog = async (open: boolean) => {
     if (!open) {
-      stopScanner();
+      await stopScanner();
       resetScanState();
     }
     setShowScanner(open);
