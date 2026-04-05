@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Plus, MoreVertical, Edit2, Trash2, Phone } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
+import { useAuth } from "@/hooks/useAuth";
 
 type DivisiPanitia = Database["public"]["Enums"]["divisi_panitia"];
 type RolePanitia = Database["public"]["Enums"]["role_panitia"];
