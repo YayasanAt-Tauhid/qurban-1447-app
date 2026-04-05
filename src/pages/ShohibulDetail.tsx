@@ -15,16 +15,7 @@ import { ArrowLeft, MessageCircle, Edit2, Trash2, X, Save } from "lucide-react";
 import { useState } from "react";
 import type { Database } from "@/integrations/supabase/types";
 
-type BagianHewan = Database["public"]["Enums"]["bagian_hewan"];
-
-const BAGIAN_LIST: { bagian: BagianHewan; label: string; icon: string }[] = [
-  { bagian: "jeroan", label: "Jeroan", icon: "🫀" },
-  { bagian: "kepala", label: "Kepala", icon: "🐄" },
-  { bagian: "kulit", label: "Kulit", icon: "🟫" },
-  { bagian: "ekor", label: "Ekor", icon: "🦴" },
-  { bagian: "kaki", label: "Kaki", icon: "🦿" },
-  { bagian: "tulang", label: "Tulang", icon: "🦴" },
-];
+import { KATEGORI_BAGIAN } from "@/pages/UndianBagian";
 
 const ShohibulDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -240,23 +231,33 @@ const ShohibulDetail = () => {
 
       {/* Request Bagian */}
       <Card>
-        <CardHeader><CardTitle className="text-lg">Request Bagian Hewan</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-lg">📋 Survei Awal — Request Bagian</CardTitle>
+        </CardHeader>
         <CardContent>
           {(!requestList || requestList.length === 0) ? (
             <p className="text-sm text-muted-foreground">Tidak ada request bagian.</p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {BAGIAN_LIST.map(({ bagian, label, icon }) => {
-                const has = requestList.some((r) => r.bagian === bagian);
+              {KATEGORI_BAGIAN.map(({ id, label, icon, slots }) => {
+                const has = requestList.some((r) => r.bagian === id);
+                if (!has) return null;
                 return (
-                  <div key={bagian} className={`p-3 rounded-lg border text-sm ${has ? "border-primary bg-primary/5" : "bg-muted/30 text-muted-foreground"}`}>
-                    <span className="mr-1">{icon}</span> {label}
-                    {has && <Badge className="ml-2 bg-success/10 text-success border-success/20 text-xs">✓</Badge>}
+                  <div key={id} className="p-3 rounded-lg border border-primary bg-primary/5 text-sm flex items-center gap-2">
+                    <span className="text-lg">{icon}</span>
+                    <div>
+                      <p className="font-medium">{label}</p>
+                      <p className="text-xs text-muted-foreground">maks {slots.length} orang</p>
+                    </div>
+                    <Badge className="ml-auto bg-success/10 text-success border-success/20 text-xs">✓</Badge>
                   </div>
                 );
               })}
             </div>
           )}
+          <p className="text-xs text-muted-foreground mt-3 italic">
+            Keputusan final ditentukan panitia melalui musyawarah/undian.
+          </p>
         </CardContent>
       </Card>
     </div>

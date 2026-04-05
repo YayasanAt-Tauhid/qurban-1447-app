@@ -11,18 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatRupiah } from "@/lib/qurban-utils";
 import { ArrowLeft } from "lucide-react";
-import type { Database } from "@/integrations/supabase/types";
-
-type BagianHewan = Database["public"]["Enums"]["bagian_hewan"];
-
-const BAGIAN_LIST: { bagian: BagianHewan; label: string }[] = [
-  { bagian: "jeroan", label: "Jeroan" },
-  { bagian: "kepala", label: "Kepala" },
-  { bagian: "kulit", label: "Kulit" },
-  { bagian: "ekor", label: "Ekor" },
-  { bagian: "kaki", label: "Kaki" },
-  { bagian: "tulang", label: "Tulang" },
-];
+import { KATEGORI_BAGIAN, getKuotaKategori } from "@/pages/UndianBagian";
 
 interface HewanOption {
   id: string;
@@ -44,7 +33,7 @@ const ShohibulDaftar = () => {
   const [nama, setNama] = useState("");
   const [alamat, setAlamat] = useState("");
   const [noWa, setNoWa] = useState("");
-  const [requestBagian, setRequestBagian] = useState<BagianHewan[]>([]);
+  const [requestBagian, setRequestBagian] = useState<string[]>([]);
 
   // Fetch hewan with sisa kuota
   const { data: hewanList, isLoading: loadingHewan } = useQuery({
@@ -102,6 +91,7 @@ const ShohibulDaftar = () => {
       if (error) throw error;
 
       if (isSapi && requestBagian.length > 0) {
+        // Simpan request_bagian (per kategori)
         const requests = requestBagian.map((bagian) => ({
           bagian,
           hewan_id: hewanId,
@@ -109,6 +99,24 @@ const ShohibulDaftar = () => {
         }));
         const { error: reqError } = await supabase.from("request_bagian").insert(requests);
         if (reqError) throw reqError;
+
+        // Sync ke pilihan_bagian — ambil slot kosong per kategori
+        for (const kategoriId of requestBagian) {
+          const kategori = KATEGORI_BAGIAN.find(k => k.id === kategoriId);
+          if (!kategori) continue;
+          const { data: sudahPilih } = await supabase
+            .from("pilihan_bagian")
+            .select("bagian")
+            .eq("hewan_id", hewanId)
+            .in("bagian", kategori.slots);
+          const slotTerpakai = new Set((sudahPilih ?? []).map((p: any) => p.bagian));
+          const slotKosong = kategori.slots.find(s => !slotTerpakai.has(s));
+          if (slotKosong) {
+            await supabase.from("pilihan_bagian").insert({
+              hewan_id: hewanId, shohibul_id: inserted.id, bagian: slotKosong,
+            });
+          }
+        }
       }
 
       return inserted.id;
@@ -225,14 +233,15 @@ const ShohibulDaftar = () => {
         <div className="space-y-3">
           <h2 className="text-base font-semibold">Request Bagian Hewan (Opsional)</h2>
           <p className="text-sm text-muted-foreground">
-            Pilih bagian hewan yang ingin Anda request. Ini bersifat opsional.
+            Pilih bagian yang Anda minati. Angka di kanan = maks shohibul yang bisa dapat bagian ini.
           </p>
-          <div className="grid grid-cols-3 gap-3">
-            {BAGIAN_LIST.map(({ bagian, label }) => {
-              const checked = requestBagian.includes(bagian);
+          <div className="grid grid-cols-2 gap-2">
+            {KATEGORI_BAGIAN.map(({ id, label, icon, slots }) => {
+              const checked = requestBagian.includes(id);
+              const kuota = slots.length;
               return (
                 <label
-                  key={bagian}
+                  key={id}
                   className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${
                     checked ? "border-primary bg-primary/5" : "hover:border-primary/50"
                   }`}
@@ -240,17 +249,21 @@ const ShohibulDaftar = () => {
                   <Checkbox
                     checked={checked}
                     onCheckedChange={(v) => {
-                      if (v) setRequestBagian([...requestBagian, bagian]);
-                      else setRequestBagian(requestBagian.filter((b) => b !== bagian));
+                      if (v) setRequestBagian([...requestBagian, id]);
+                      else setRequestBagian(requestBagian.filter((b) => b !== id));
                     }}
                   />
-                  <span className="text-sm font-medium capitalize">{label}</span>
+                  <span className="text-lg">{icon}</span>
+                  <span className="text-sm font-medium flex-1">{label}</span>
+                  <span className="text-xs text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                    maks {kuota}
+                  </span>
                 </label>
               );
             })}
           </div>
           <p className="text-xs text-muted-foreground italic">
-            Request dapat diubah setelah pendaftaran di halaman detail hewan.
+            ⚠️ Request ini bersifat survei awal. Keputusan final ditentukan panitia melalui undian jika ada perebutan.
           </p>
         </div>
       )}
@@ -296,7 +309,7 @@ const ShohibulDaftar = () => {
         {isSapi && requestBagian.length > 0 && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Request Bagian</span>
-            <span className="font-medium capitalize">{requestBagian.join(", ")}</span>
+            <span className="font-medium">{requestBagian.map(id => KATEGORI_BAGIAN.find(k => k.id === id)?.label ?? id).join(", ")}</span>
           </div>
         )}
       </div>
