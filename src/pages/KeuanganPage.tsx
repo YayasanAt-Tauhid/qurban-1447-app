@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { formatRupiah, formatTanggal } from "@/lib/qurban-utils";
+import { formatRupiah, formatTanggal, SUMBER_HEWAN_LABEL, type SumberHewan } from "@/lib/qurban-utils";
 import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard, FileUp } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import ImportExcelDialog from "@/components/ImportExcelDialog";
@@ -65,7 +65,7 @@ const KeuanganPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shohibul_qurban")
-        .select("*, hewan_qurban(nomor_urut, jenis_hewan, tipe_kepemilikan, iuran_per_orang)")
+        .select("*, hewan_qurban(nomor_urut, jenis_hewan, tipe_kepemilikan, iuran_per_orang, sumber_hewan, harga, biaya_operasional)")
         .order("nama");
       if (error) throw error;
       return data;
@@ -159,7 +159,14 @@ const KeuanganPage = () => {
     setPayNominal(Number(h?.iuran_per_orang ?? 0));
     setPayJumlah("");
     setPayMetode("tunai");
-    setPayKeterangan(`Iuran ${s.nama} - ${h?.nomor_urut ?? ""}`);
+    const sumber = h?.sumber_hewan ?? "beli_panitia";
+    const isIndividu = h?.tipe_kepemilikan === "individu";
+    const rincian = isIndividu
+      ? (sumber === "bawa_sendiri"
+          ? ` | Bawa sendiri | Operasional: ${formatRupiah(Number(h?.biaya_operasional ?? 0))}`
+          : ` | Beli panitia | Hewan: ${formatRupiah(Number(h?.harga ?? 0))} + Operasional: ${formatRupiah(Number(h?.biaya_operasional ?? 0))}`)
+      : "";
+    setPayKeterangan(`Iuran ${s.nama} - ${h?.nomor_urut ?? ""}${rincian}`);
     setIuranDialogOpen(true);
   };
 
@@ -430,7 +437,8 @@ const KeuanganPage = () => {
                       <TableHead>Nama</TableHead>
                       <TableHead>Hewan</TableHead>
                       <TableHead>Tipe</TableHead>
-                      <TableHead className="text-right">Nominal Iuran</TableHead>
+                      <TableHead>Sumber</TableHead>
+                      <TableHead className="text-right">Rincian Iuran</TableHead>
                       <TableHead className="text-right">Terbayar</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Aksi</TableHead>
@@ -438,7 +446,7 @@ const KeuanganPage = () => {
                   </TableHeader>
                   <TableBody>
                     {filteredIuran?.length === 0 && (
-                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Belum ada data</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Belum ada data</TableCell></TableRow>
                     )}
                     {filteredIuran?.map((s) => {
                       const h = s.hewan_qurban as any;
@@ -450,7 +458,26 @@ const KeuanganPage = () => {
                           <TableCell className="font-medium">{s.nama}</TableCell>
                           <TableCell>{h?.nomor_urut ?? "-"} ({h?.jenis_hewan})</TableCell>
                           <TableCell className="capitalize">{h?.tipe_kepemilikan}</TableCell>
-                          <TableCell className="text-right font-semibold">{formatRupiah(iur)}</TableCell>
+                          <TableCell>
+                            {h?.tipe_kepemilikan === "individu" ? (
+                              <Badge variant="outline" className="text-xs">
+                                {SUMBER_HEWAN_LABEL[(h?.sumber_hewan as SumberHewan) ?? "beli_panitia"]}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Kolektif</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <p className="font-semibold">{formatRupiah(iur)}</p>
+                            {h?.tipe_kepemilikan === "individu" && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {h?.sumber_hewan === "bawa_sendiri"
+                                  ? `Operasional: ${formatRupiah(Number(h?.biaya_operasional ?? 0))}`
+                                  : `Hewan: ${formatRupiah(Number(h?.harga ?? 0))} + Op: ${formatRupiah(Number(h?.biaya_operasional ?? 0))}`
+                                }
+                              </p>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">{formatRupiah(paid)}</TableCell>
                           <TableCell>
                             <Badge className={
@@ -484,7 +511,7 @@ const KeuanganPage = () => {
           <div className="space-y-3">
             <div><Label>Nama Shohibul</Label><Input value={payNama} readOnly className="bg-muted" /></div>
             <div><Label>Hewan</Label><Input value={payHewan} readOnly className="bg-muted" /></div>
-            <div><Label>Nominal Iuran</Label><Input value={formatRupiah(payNominal)} readOnly className="bg-muted" /></div>
+            <div><Label>Total yang Harus Dibayar ke Panitia</Label><Input value={formatRupiah(payNominal)} readOnly className="bg-muted font-semibold" /></div>
             <div><Label>Jumlah Dibayar (Rp)</Label><Input type="number" value={payJumlah} onChange={(e) => setPayJumlah(e.target.value)} placeholder="0" /></div>
             <div>
               <Label>Metode</Label>
