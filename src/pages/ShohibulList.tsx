@@ -1,20 +1,24 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, FileUp } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import ImportExcelDialog from "@/components/ImportExcelDialog";
 
 const ShohibulList = () => {
   const [search, setSearch] = useState("");
+  const [showImport, setShowImport] = useState(false);
   const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ["shohibul-list"],
@@ -28,6 +32,41 @@ const ShohibulList = () => {
     },
   });
 
+  const { data: hewanList } = useQuery({
+    queryKey: ["hewan-list-lookup"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("hewan_qurban").select("id, nomor_urut");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const handleImport = async (rows: Record<string, any>[]) => {
+    const hewanMap = new Map(hewanList?.map((h) => [h.nomor_urut.toLowerCase(), h.id]) ?? []);
+
+    const inserts = rows.map((r) => {
+      const tipe = ["kolektif", "individu"].includes(r.tipe_kepemilikan?.toLowerCase?.().trim())
+        ? r.tipe_kepemilikan.toLowerCase().trim() as "kolektif" | "individu"
+        : "kolektif" as const;
+      const hewanId = r.nomor_urut_hewan ? hewanMap.get(String(r.nomor_urut_hewan).toLowerCase().trim()) ?? null : null;
+      return {
+        nama: String(r.nama).trim(),
+        no_wa: String(r.no_wa).trim(),
+        alamat: r.alamat ? String(r.alamat).trim() : null,
+        tipe_kepemilikan: tipe,
+        hewan_id: hewanId,
+        panitia_pendaftar: r.panitia_pendaftar ? String(r.panitia_pendaftar).trim() : null,
+        sumber_pendaftaran: "manual" as const,
+        status_checklist_panitia: "pending" as const,
+      };
+    });
+
+    const { error } = await supabase.from("shohibul_qurban").insert(inserts);
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ["shohibul-list"] });
+    toast.success(`${inserts.length} shohibul berhasil diimport`);
+  };
+
   const filtered = data?.filter((s) =>
     s.nama.toLowerCase().includes(search.toLowerCase())
   );
@@ -40,9 +79,14 @@ const ShohibulList = () => {
           <p className="page-subtitle">Daftar peserta qurban 1447H</p>
         </div>
         {isAdmin() && (
-          <Link to="/shohibul/daftar">
-            <Button><Plus className="mr-2 h-4 w-4" /> Daftarkan</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowImport(true)}>
+              <FileUp className="mr-2 h-4 w-4" /> Import Excel
+            </Button>
+            <Link to="/shohibul/daftar">
+              <Button><Plus className="mr-2 h-4 w-4" /> Daftarkan</Button>
+            </Link>
+          </div>
         )}
       </div>
 
@@ -114,6 +158,28 @@ const ShohibulList = () => {
           </Table>
         </div>
       )}
+
+      {/* Import Excel Dialog */}
+      <ImportExcelDialog
+        open={showImport}
+        onOpenChange={setShowImport}
+        title="Import Shohibul Qurban dari Excel"
+        columns={[
+          { key: "nama", label: "Nama", required: true },
+          { key: "no_wa", label: "No. WA", required: true },
+          { key: "alamat", label: "Alamat" },
+          { key: "tipe_kepemilikan", label: "Tipe Kepemilikan" },
+          { key: "nomor_urut_hewan", label: "Nomor Urut Hewan" },
+          { key: "panitia_pendaftar", label: "Panitia Pendaftar" },
+        ]}
+        templateData={[
+          { nama: "Ahmad", no_wa: "08123456789", alamat: "Jl. Merdeka 1", tipe_kepemilikan: "kolektif", nomor_urut_hewan: "Sapi 1", panitia_pendaftar: "" },
+          { nama: "Fatimah", no_wa: "08198765432", alamat: "Jl. Sudirman 5", tipe_kepemilikan: "individu", nomor_urut_hewan: "Kambing 1", panitia_pendaftar: "Pak Udin" },
+        ]}
+        templateFileName="template-shohibul.xlsx"
+        validateRow={(r) => !!r.nama && String(r.nama).trim() !== "" && !!r.no_wa && String(r.no_wa).trim() !== ""}
+        onImport={handleImport}
+      />
     </div>
   );
 };
