@@ -214,13 +214,15 @@ const PanitiaPage = () => {
                       <p className="text-sm text-muted-foreground">{p.jabatan ?? "-"}</p>
                     </div>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => startEdit(p)}><Edit2 className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setDeleteId(p.id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {isSuperAdmin && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => startEdit(p)}><Edit2 className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setDeleteId(p.id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Hapus</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   <Badge className={DIVISI_COLORS[p.divisi] ?? "bg-muted text-muted-foreground"} variant="outline">
