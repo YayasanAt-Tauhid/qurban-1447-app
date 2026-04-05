@@ -34,6 +34,8 @@ const DIVISI_COLORS: Record<string, string> = {
 
 const PanitiaPage = () => {
   const queryClient = useQueryClient();
+  const { hasRole } = useAuth();
+  const isSuperAdmin = hasRole(["super_admin"]);
   const [filterDivisi, setFilterDivisi] = useState("semua");
   const [filterRole, setFilterRole] = useState("semua");
   const [dialogOpen, setDialogOpen] = useState(false);
