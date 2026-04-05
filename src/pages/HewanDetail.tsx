@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Printer, Pencil, Trash2 } from "lucide-react";
-import { formatRupiah, formatTanggal, hitungIuranPerOrang } from "@/lib/qurban-utils";
+import { formatRupiah, formatTanggal, hitungTotalPerOrang, getBiayaOperasional, SUMBER_HEWAN_LABEL, type SumberHewan } from "@/lib/qurban-utils";
 import { toast } from "sonner";
 import { useState } from "react";
 import jsPDF from "jspdf";
@@ -87,9 +87,13 @@ const HewanDetail = () => {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const harga = parseInt(editForm.harga) || 0;
-      const isSapiKolektif = hewan?.jenis_hewan === "sapi" && hewan?.tipe_kepemilikan === "kolektif";
-      const iuran = isSapiKolektif ? hitungIuranPerOrang(harga) : harga;
+      const jenisHewan = hewan?.jenis_hewan ?? "sapi";
+      const tipeKepemilikan = hewan?.tipe_kepemilikan ?? "individu";
+      const sumberHewan: SumberHewan = (hewan?.sumber_hewan as SumberHewan) ?? "beli_panitia";
+      const isBawaSendiri = tipeKepemilikan === "individu" && sumberHewan === "bawa_sendiri";
+      const harga = isBawaSendiri ? 0 : (parseInt(editForm.harga) || 0);
+      const operasional = getBiayaOperasional(jenisHewan, tipeKepemilikan);
+      const iuran = hitungTotalPerOrang(harga, jenisHewan, tipeKepemilikan, sumberHewan);
       const { error } = await supabase.from("hewan_qurban").update({
         nomor_urut: editForm.nomor_urut,
         ras: editForm.ras || null,
@@ -97,6 +101,7 @@ const HewanDetail = () => {
         hp_penjual: editForm.hp_penjual || null,
         alamat_penjual: editForm.alamat_penjual || null,
         harga,
+        biaya_operasional: operasional,
         iuran_per_orang: iuran,
         estimasi_bobot: parseInt(editForm.estimasi_bobot) || null,
         uang_muka: parseInt(editForm.uang_muka) || 0,
@@ -139,6 +144,7 @@ const HewanDetail = () => {
       hp_penjual: hewan.hp_penjual || "",
       alamat_penjual: hewan.alamat_penjual || "",
       harga: String(hewan.harga),
+      sumber_hewan: hewan.sumber_hewan || "beli_panitia",
       estimasi_bobot: hewan.estimasi_bobot ? String(hewan.estimasi_bobot) : "",
       uang_muka: String(hewan.uang_muka ?? 0),
       catatan: hewan.catatan || "",
@@ -289,8 +295,19 @@ const HewanDetail = () => {
                 <div className="col-span-full space-y-2"><Label>Alamat Penjual</Label><Input value={editForm.alamat_penjual} onChange={(e) => updateField("alamat_penjual", e.target.value)} /></div>
               </div>
               <div className="space-y-2"><Label>Catatan</Label><Textarea value={editForm.catatan} onChange={(e) => updateField("catatan", e.target.value)} /></div>
-              {hewan.jenis_hewan === "sapi" && hewan.tipe_kepemilikan === "kolektif" && editForm.harga && (
-                <p className="text-sm text-muted-foreground">Iuran per orang (auto): {formatRupiah(hitungIuranPerOrang(parseInt(editForm.harga) || 0))}</p>
+              {editForm.harga !== undefined && (
+                <p className="text-sm text-muted-foreground">
+                  Total per shohibul (auto):{" "}
+                  <strong>{formatRupiah(hitungTotalPerOrang(
+                    (hewan?.sumber_hewan === "bawa_sendiri" ? 0 : parseInt(editForm.harga) || 0),
+                    hewan?.jenis_hewan ?? "sapi",
+                    hewan?.tipe_kepemilikan ?? "individu",
+                    (hewan?.sumber_hewan as SumberHewan) ?? "beli_panitia"
+                  ))}</strong>
+                  {getBiayaOperasional(hewan?.jenis_hewan ?? "sapi", hewan?.tipe_kepemilikan ?? "individu") > 0 && (
+                    <span className="ml-1">(termasuk operasional Rp {getBiayaOperasional(hewan?.jenis_hewan ?? "sapi", hewan?.tipe_kepemilikan ?? "individu").toLocaleString("id-ID")})</span>
+                  )}
+                </p>
               )}
               <div className="flex gap-2">
                 <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
@@ -304,6 +321,12 @@ const HewanDetail = () => {
               <div><span className="text-muted-foreground">Harga</span><p className="font-semibold">{formatRupiah(Number(hewan.harga))}</p></div>
               <div><span className="text-muted-foreground">Kuota</span><p className="font-semibold">{shohibulList?.length ?? 0}/{hewan.kuota}</p></div>
               <div><span className="text-muted-foreground">Iuran/orang</span><p className="font-semibold">{formatRupiah(Number(hewan.iuran_per_orang))}</p></div>
+              {hewan.tipe_kepemilikan === "individu" && hewan.sumber_hewan && (
+                <div><span className="text-muted-foreground">Sumber Hewan</span><p className="font-semibold">{SUMBER_HEWAN_LABEL[hewan.sumber_hewan as SumberHewan] ?? hewan.sumber_hewan}</p></div>
+              )}
+              {hewan.tipe_kepemilikan === "individu" && (
+                <div><span className="text-muted-foreground">Biaya Operasional</span><p className="font-semibold">{formatRupiah(Number(hewan.biaya_operasional ?? 0))}</p></div>
+              )}
               <div><span className="text-muted-foreground">Bobot</span><p className="font-semibold">{hewan.estimasi_bobot ? `${hewan.estimasi_bobot} kg` : "-"}</p></div>
               {hewan.ras && <div><span className="text-muted-foreground">Ras</span><p className="font-semibold">{hewan.ras}</p></div>}
               {hewan.nama_penjual && <div><span className="text-muted-foreground">Penjual</span><p className="font-semibold">{hewan.nama_penjual}</p></div>}
