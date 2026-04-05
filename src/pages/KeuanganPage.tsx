@@ -24,8 +24,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 const KATEGORI_SUGGESTIONS = ["pembelian hewan", "operasional", "konsumsi", "perlengkapan", "iuran shohibul"];
 
 const KeuanganPage = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, panitiaId } = useAuth();
   const queryClient = useQueryClient();
+  const [showKasImport, setShowKasImport] = useState(false);
   const [filterJenis, setFilterJenis] = useState("semua");
   const [filterMetode, setFilterMetode] = useState("semua");
   const [searchKeterangan, setSearchKeterangan] = useState("");
