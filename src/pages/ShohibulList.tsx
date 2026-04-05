@@ -59,6 +59,7 @@ const ShohibulList = () => {
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead>Hewan</TableHead>
+                <TableHead>No. WA</TableHead>
                 <TableHead>Tipe</TableHead>
                 <TableHead>Akad</TableHead>
                 <TableHead>Status</TableHead>
