@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { formatRupiah, formatTanggal, SUMBER_HEWAN_LABEL, type SumberHewan } from "@/lib/qurban-utils";
-import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard, FileUp } from "lucide-react";
+import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard, FileUp, Banknote, Landmark } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import ImportExcelDialog from "@/components/ImportExcelDialog";
 import { formatRupiah as fmtR } from "@/lib/qurban-utils";
@@ -174,6 +174,15 @@ const KeuanganPage = () => {
   const totalKeluar = kasList?.filter((k) => k.jenis === "keluar").reduce((a, k) => a + Number(k.jumlah), 0) ?? 0;
   const saldo = totalMasuk - totalKeluar;
 
+  const saldoTunai = kasList?.reduce((a, k) => {
+    if (k.metode !== "tunai") return a;
+    return k.jenis === "masuk" ? a + Number(k.jumlah) : a - Number(k.jumlah);
+  }, 0) ?? 0;
+  const saldoBank = kasList?.reduce((a, k) => {
+    if (k.metode !== "bank") return a;
+    return k.jenis === "masuk" ? a + Number(k.jumlah) : a - Number(k.jumlah);
+  }, 0) ?? 0;
+
   const filtered = kasList?.filter((k) => {
     if (filterJenis !== "semua" && k.jenis !== filterJenis) return false;
     if (filterMetode !== "semua" && k.metode !== filterMetode) return false;
@@ -247,7 +256,29 @@ const KeuanganPage = () => {
             <Card>
               <CardContent className="p-5 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center"><Wallet className="h-5 w-5 text-info" /></div>
-                <div><p className="text-sm text-muted-foreground">Saldo</p><p className="text-xl font-bold text-info">{formatRupiah(saldo)}</p></div>
+                <div><p className="text-sm text-muted-foreground">Saldo Total</p><p className="text-xl font-bold text-info">{formatRupiah(saldo)}</p></div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Saldo per Metode */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-800">
+              <CardContent className="p-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center"><Banknote className="h-5 w-5 text-amber-600 dark:text-amber-400" /></div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Saldo Tunai</p>
+                  <p className={`text-xl font-bold ${saldoTunai >= 0 ? "text-amber-600 dark:text-amber-400" : "text-destructive"}`}>{formatRupiah(saldoTunai)}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 dark:border-blue-800">
+              <CardContent className="p-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center"><Landmark className="h-5 w-5 text-blue-600 dark:text-blue-400" /></div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Saldo Bank</p>
+                  <p className={`text-xl font-bold ${saldoBank >= 0 ? "text-blue-600 dark:text-blue-400" : "text-destructive"}`}>{formatRupiah(saldoBank)}</p>
+                </div>
               </CardContent>
             </Card>
           </div>
