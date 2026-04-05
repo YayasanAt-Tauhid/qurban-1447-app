@@ -264,7 +264,7 @@ export type Database = {
       }
       request_bagian: {
         Row: {
-          bagian: Database["public"]["Enums"]["bagian_hewan"]
+          bagian: string
           catatan: string | null
           created_at: string
           hewan_id: string
@@ -272,7 +272,7 @@ export type Database = {
           shohibul_qurban_id: string
         }
         Insert: {
-          bagian: Database["public"]["Enums"]["bagian_hewan"]
+          bagian: string
           catatan?: string | null
           created_at?: string
           hewan_id: string
@@ -280,7 +280,7 @@ export type Database = {
           shohibul_qurban_id: string
         }
         Update: {
-          bagian?: Database["public"]["Enums"]["bagian_hewan"]
+          bagian?: string
           catatan?: string | null
           created_at?: string
           hewan_id?: string

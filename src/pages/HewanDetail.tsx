@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Printer, Pencil, Trash2 } from "lucide-react";
+import { KATEGORI_BAGIAN, getKuotaKategori } from "@/pages/UndianBagian";
 import { formatRupiah, formatTanggal, hitungTotalPerOrang, getBiayaOperasional, SUMBER_HEWAN_LABEL, type SumberHewan } from "@/lib/qurban-utils";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -18,16 +19,7 @@ import jsPDF from "jspdf";
 import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 
-type BagianHewan = Database["public"]["Enums"]["bagian_hewan"];
 
-const BAGIAN_LIST: { bagian: BagianHewan; label: string; icon: string }[] = [
-  { bagian: "jeroan", label: "Jeroan", icon: "🫀" },
-  { bagian: "kepala", label: "Kepala", icon: "🐄" },
-  { bagian: "kulit", label: "Kulit", icon: "🟫" },
-  { bagian: "ekor", label: "Ekor", icon: "🦴" },
-  { bagian: "kaki", label: "Kaki", icon: "🦿" },
-  { bagian: "tulang", label: "Tulang", icon: "🦴" },
-];
 
 const HewanDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -68,19 +60,54 @@ const HewanDetail = () => {
   });
 
   const toggleMutation = useMutation({
-    mutationFn: async ({ bagian, shohibulId }: { bagian: BagianHewan; shohibulId: string }) => {
+    mutationFn: async ({ bagian, shohibulId }: { bagian: string; shohibulId: string }) => {
       const existing = requestList?.find((r) => r.bagian === bagian && r.shohibul_qurban_id === shohibulId);
       if (existing) {
+        // Hapus dari request_bagian
         const { error } = await supabase.from("request_bagian").delete().eq("id", existing.id);
         if (error) throw error;
+        // Hapus juga semua pilihan_bagian slot kategori ini milik shohibul ini
+        const kategori = KATEGORI_BAGIAN.find(k => k.id === bagian);
+        if (kategori) {
+          for (const slot of kategori.slots) {
+            await supabase.from("pilihan_bagian")
+              .delete()
+              .eq("hewan_id", id!)
+              .eq("shohibul_id", shohibulId)
+              .eq("bagian", slot);
+          }
+        }
       } else {
+        // Cek kuota — berapa orang sudah request kategori ini
+        const sudahRequest = requestList?.filter(r => r.bagian === bagian).length ?? 0;
+        const kuota = getKuotaKategori(bagian);
+        if (sudahRequest >= kuota) {
+          throw new Error(`Kuota penuh (maks ${kuota} orang untuk bagian ini)`);
+        }
+        // Simpan ke request_bagian
         const { error } = await supabase.from("request_bagian").insert({ bagian, hewan_id: id!, shohibul_qurban_id: shohibulId });
         if (error) throw error;
+        // Sync ke pilihan_bagian — ambil slot berikutnya yang belum ada peminatnya
+        const kategori = KATEGORI_BAGIAN.find(k => k.id === bagian);
+        if (kategori) {
+          const { data: sudahPilih } = await supabase
+            .from("pilihan_bagian")
+            .select("bagian")
+            .eq("hewan_id", id!)
+            .in("bagian", kategori.slots);
+          const slotTerpakai = new Set((sudahPilih ?? []).map(p => p.bagian));
+          const slotKosong = kategori.slots.find(s => !slotTerpakai.has(s));
+          if (slotKosong) {
+            await supabase.from("pilihan_bagian").insert({
+              hewan_id: id!, shohibul_id: shohibulId, bagian: slotKosong,
+            });
+          }
+        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["request-bagian", id] });
-      toast.success("Request bagian diperbarui");
+      toast.success("Request bagian diperbarui & disinkron ke undian");
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -155,13 +182,14 @@ const HewanDetail = () => {
     setEditing(true);
   };
 
-  const getRequestsForBagian = (bagian: BagianHewan) => requestList?.filter((r) => r.bagian === bagian) ?? [];
+  const getRequestsForKategori = (kategoriId: string) => requestList?.filter((r) => r.bagian === kategoriId) ?? [];
 
-  const getBadge = (bagian: BagianHewan) => {
-    const reqs = getRequestsForBagian(bagian);
-    if (reqs.length === 0) return <Badge className="bg-warning/10 text-warning border-warning/20">→ Mustahiq</Badge>;
-    if (reqs.length === 1) return <Badge className="bg-success/10 text-success border-success/20">Hak {(reqs[0] as any).shohibul_qurban?.nama}</Badge>;
-    return <Badge className="bg-info/10 text-info border-info/20">Dibagi {reqs.length} orang</Badge>;
+  const getBadgeKategori = (kategoriId: string) => {
+    const reqs = getRequestsForKategori(kategoriId);
+    const kuota = getKuotaKategori(kategoriId);
+    if (reqs.length === 0) return <Badge variant="outline" className="text-muted-foreground">Belum ada minat</Badge>;
+    if (reqs.length < kuota) return <Badge className="bg-success/10 text-success border-success/20">{reqs.length}/{kuota} peminat</Badge>;
+    return <Badge className="bg-warning/10 text-warning border-warning/20">Penuh ({kuota}/{kuota})</Badge>;
   };
 
   const cetakDistribusi = () => {
@@ -174,14 +202,14 @@ const HewanDetail = () => {
     doc.text(`Tanggal cetak: ${formatTanggal(new Date())}`, 14, 37);
     doc.text("Masjid At-Tauhid Pangkalpinang — Qurban 1447H", 14, 44);
     let y = 58;
-    BAGIAN_LIST.forEach(({ bagian, label }) => {
-      const reqs = getRequestsForBagian(bagian);
+    KATEGORI_BAGIAN.forEach(({ id, label }) => {
+      const reqs = getRequestsForKategori(id);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text(`${label}:`, 14, y);
       doc.setFont("helvetica", "normal");
-      if (reqs.length === 0) { doc.text("→ Mustahiq", 50, y); }
-      else { doc.text(reqs.map((r) => (r as any).shohibul_qurban?.nama ?? "-").join(", "), 50, y); }
+      if (reqs.length === 0) { doc.text("→ Mustahiq", 60, y); }
+      else { doc.text(reqs.map((r) => (r as any).shohibul_qurban?.nama ?? "-").join(", "), 60, y); }
       y += 8;
     });
     doc.save(`distribusi-${hewan.nomor_urut}.pdf`);
@@ -355,19 +383,31 @@ const HewanDetail = () => {
 
       {/* Request Bagian Panel */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Request Bagian Hewan</h2>
+        <div className="flex items-start justify-between mb-4 gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">📋 Survei Awal — Request Bagian</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Catat minat awal setiap shohibul. Ini <span className="font-medium">bukan keputusan final</span> — pembagian & undian resmi dilakukan di halaman <span className="font-medium">Pembagian Bagian Sapi</span>.
+            </p>
+          </div>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {BAGIAN_LIST.map(({ bagian, label, icon }) => {
-            const reqs = getRequestsForBagian(bagian);
+          {KATEGORI_BAGIAN.map(({ id, label, icon, slots }) => {
+            const reqs = getRequestsForKategori(id);
+            const kuota = slots.length;
+            const penuh = reqs.length >= kuota;
             return (
-              <Card key={bagian} className="hover:shadow-md transition-shadow">
+              <Card key={id} className={`hover:shadow-md transition-shadow ${penuh ? "border-warning/50" : ""}`}>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-2xl">{icon}</span>
-                      <span className="font-semibold">{label}</span>
+                      <div>
+                        <span className="font-semibold text-sm">{label}</span>
+                        <p className="text-xs text-muted-foreground">Maks {kuota} orang</p>
+                      </div>
                     </div>
-                    {getBadge(bagian)}
+                    {getBadgeKategori(id)}
                   </div>
                   {reqs.length > 0 && (
                     <div className="flex flex-wrap gap-1">
@@ -378,18 +418,27 @@ const HewanDetail = () => {
                   )}
                   {isAdmin() && shohibulList && shohibulList.length > 0 && (
                     <div className="border-t pt-2 space-y-1">
-                      <p className="text-xs text-muted-foreground mb-1">Toggle request:</p>
+                      <p className="text-xs text-muted-foreground mb-1">Tandai minat (survei awal):</p>
                       <div className="flex flex-wrap gap-1">
                         {shohibulList.map((s) => {
                           const hasRequest = reqs.some((r) => r.shohibul_qurban_id === s.id);
+                          const disabled = toggleMutation.isPending || (penuh && !hasRequest);
                           return (
-                            <Button key={s.id} size="sm" variant={hasRequest ? "default" : "outline"} className="text-xs h-7"
-                              onClick={() => toggleMutation.mutate({ bagian, shohibulId: s.id })} disabled={toggleMutation.isPending}>
+                            <Button key={s.id} size="sm"
+                              variant={hasRequest ? "default" : "outline"}
+                              className="text-xs h-7"
+                              onClick={() => toggleMutation.mutate({ bagian: id, shohibulId: s.id })}
+                              disabled={disabled}
+                              title={penuh && !hasRequest ? `Kuota penuh (maks ${kuota} orang)` : ""}
+                            >
                               {s.nama}
                             </Button>
                           );
                         })}
                       </div>
+                      {penuh && (
+                        <p className="text-xs text-warning mt-1">⚠️ Kuota penuh — tidak bisa tambah peminat lagi</p>
+                      )}
                     </div>
                   )}
                 </CardContent>

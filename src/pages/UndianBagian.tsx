@@ -38,6 +38,34 @@ export const BAGIAN_KOLEKTIF: { id: string; label: string; kuota: number; bisa_m
   { id: "kulit_3",     label: "Kulit 3",            kuota: 1, bisa_multi: true  },
 ];
 
+// ─── Kategori bagian (untuk survei awal) ─────────────────────────────────────
+// Setiap kategori bisa punya 1 atau lebih slot. Kuota = max shohibul yang bisa dapat.
+export const KATEGORI_BAGIAN: { id: string; label: string; icon: string; slots: string[] }[] = [
+  { id: "ekor",        label: "Ekor",        icon: "🦴", slots: ["ekor"] },
+  { id: "kepala",      label: "Kepala",       icon: "🐄", slots: ["kepala", "rangka_kepala"] },
+  { id: "ginjal",      label: "Ginjal",       icon: "🫘", slots: ["ginjal"] },
+  { id: "jantung",     label: "Jantung",      icon: "🫀", slots: ["jantung"] },
+  { id: "limpa",       label: "Limpa",        icon: "🟣", slots: ["limpa"] },
+  { id: "lidah",       label: "Lidah",        icon: "👅", slots: ["lidah"] },
+  { id: "tulang_kaki", label: "Tulang Kaki",  icon: "🦿", slots: ["tulang_kaki_1","tulang_kaki_2","tulang_kaki_3","tulang_kaki_4"] },
+  { id: "paru",        label: "Paru",         icon: "🫁", slots: ["paru_1","paru_2"] },
+  { id: "babat",       label: "Babat",        icon: "🟤", slots: ["babat_1","babat_2","babat_3"] },
+  { id: "usus",        label: "Usus",         icon: "🌀", slots: ["usus_1","usus_2"] },
+  { id: "lemak",       label: "Lemak",        icon: "🟡", slots: ["lemak_1","lemak_2","lemak_3"] },
+  { id: "daging_pipi", label: "Daging Pipi",  icon: "🥩", slots: ["daging_pipi_1","daging_pipi_2"] },
+  { id: "kulit",       label: "Kulit",        icon: "🟫", slots: ["kulit_1","kulit_2","kulit_3"] },
+];
+
+// Helper: dari kategori id → max kuota (jumlah slot)
+export function getKuotaKategori(kategoriId: string): number {
+  return KATEGORI_BAGIAN.find(k => k.id === kategoriId)?.slots.length ?? 1;
+}
+
+// Helper: dari slot id → kategori id
+export function getKategoriDariSlot(slotId: string): string {
+  return KATEGORI_BAGIAN.find(k => k.slots.includes(slotId))?.id ?? slotId;
+}
+
 type StatusBagian = "aman" | "sengketa" | "undian" | "selesai" | "kosong";
 
 interface PilihanRow { id: string; shohibul_id: string; bagian: string; }
@@ -294,10 +322,14 @@ const UndianBagian = () => {
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-2">
           <ArrowLeft className="mr-2 h-4 w-4" /> Kembali
         </Button>
-        <h1 className="page-title">Pembagian Bagian Sapi</h1>
+        <h1 className="page-title">🎲 Pembagian Bagian Resmi — Sapi {hewan.nomor_urut}</h1>
         <p className="page-subtitle">
-          🐄 Sapi {hewan.nomor_urut} · Kolektif · {totalShohibul}/7 shohibul terdaftar
+          Eksekusi pembagian & undian resmi · Kolektif · {totalShohibul}/7 shohibul terdaftar
         </p>
+        <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300">
+          <span>💡</span>
+          <span>Survei minat awal shohibul bisa dilihat di halaman <strong>Detail Hewan</strong> tab Request Bagian.</span>
+        </div>
       </div>
 
       {/* Summary bar */}
@@ -334,7 +366,10 @@ const UndianBagian = () => {
 
       {/* Daftar bagian */}
       <div className="space-y-3">
-        <h2 className="font-semibold text-base">Bagian Khusus — Pilih yang Ingin Diambil</h2>
+        <div className="flex flex-col gap-0.5 mb-1">
+          <h2 className="font-semibold text-base">Bagian Khusus — Penetapan Resmi</h2>
+          <p className="text-xs text-muted-foreground">Pilihkan bagian untuk setiap shohibul. Jika lebih dari 1 orang berminat, gunakan musyawarah atau undian.</p>
+        </div>
         {BAGIAN_KOLEKTIF.map(bagian => {
           const peminat = getPilihan(bagian.id);
           const status  = computeStatus(bagian.id);
