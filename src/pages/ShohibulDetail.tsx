@@ -93,7 +93,6 @@ const ShohibulDetail = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      // Delete request_bagian first
       await supabase.from("request_bagian").delete().eq("shohibul_qurban_id", id!);
       const { error } = await supabase.from("shohibul_qurban").delete().eq("id", id!);
       if (error) throw error;
@@ -195,12 +194,14 @@ const ShohibulDetail = () => {
         <CardContent className="space-y-3">
           {shohibul.akad_dilakukan ? (
             <div className="space-y-2">
-              <Badge className="bg-success/10 text-success border-success/20">Akad ✓ {shohibul.akad_timestamp ? formatTanggal(shohibul.akad_timestamp) : ""}</Badge>
+              <Badge className="bg-success/10 text-success border-success/20">Akad ✓</Badge>
+              <p className="text-sm">
+                {shohibul.akad_diwakilkan
+                  ? `Qabul diwakilkan: ${shohibul.nama_wakil_akad ?? "-"}`
+                  : "Qabul langsung"}
+              </p>
               {shohibul.akad_timestamp && (
                 <p className="text-sm text-muted-foreground">Waktu: {new Date(shohibul.akad_timestamp).toLocaleString("id-ID")}</p>
-              )}
-              {shohibul.akad_diwakilkan && shohibul.nama_wakil_akad && (
-                <p className="text-sm">Diwakilkan: <strong>{shohibul.nama_wakil_akad}</strong></p>
               )}
             </div>
           ) : (

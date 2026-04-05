@@ -184,6 +184,7 @@ const LaporanPage = () => {
       ))}
     </div>
   </div>
-);
+  );
+};
 
 export default LaporanPage;

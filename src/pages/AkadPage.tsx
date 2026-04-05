@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, Share2 } from "lucide-react";
@@ -16,6 +19,8 @@ const AkadPage = () => {
   const [agreed, setAgreed] = useState(false);
   const [success, setSuccess] = useState(false);
   const [akadTime, setAkadTime] = useState<Date | null>(null);
+  const [isWakilkan, setIsWakilkan] = useState(false);
+  const [namaWakil, setNamaWakil] = useState("");
 
   const { data: shohibul, isLoading: loadingShohibul } = useQuery({
     queryKey: ["akad-shohibul", shohibulId],
@@ -40,7 +45,15 @@ const AkadPage = () => {
   const approveMutation = useMutation({
     mutationFn: async () => {
       const now = new Date().toISOString();
-      const { error } = await supabase.from("shohibul_qurban").update({ akad_dilakukan: true, akad_timestamp: now }).eq("id", shohibulId!);
+      const { error } = await supabase
+        .from("shohibul_qurban")
+        .update({
+          akad_dilakukan: true,
+          akad_timestamp: now,
+          akad_diwakilkan: isWakilkan,
+          nama_wakil_akad: isWakilkan ? namaWakil.trim() : null,
+        })
+        .eq("id", shohibulId!);
       if (error) throw error;
       return now;
     },
@@ -51,7 +64,10 @@ const AkadPage = () => {
   const shareWhatsApp = () => {
     if (!shohibul || !akadTime) return;
     const hewan = shohibul.hewan_qurban as any;
-    const msg = `Assalamu'alaikum, akad qurban Anda telah tercatat.\n\nNama: ${shohibul.nama}\nJenis: ${hewan?.jenis_hewan} (${hewan?.tipe_kepemilikan})\nWaktu: ${formatTanggal(akadTime)}\n\nJazakumullahu khairan.`;
+    const wakilInfo = isWakilkan
+      ? `\nQabul diwakilkan oleh: ${namaWakil}`
+      : "\nQabul dilakukan langsung";
+    const msg = `Assalamu'alaikum, akad qurban telah tercatat.\n\nNama: ${shohibul.nama}\nJenis: ${hewan?.jenis_hewan} (${hewan?.tipe_kepemilikan})\nWaktu: ${formatTanggal(akadTime)}${wakilInfo}\n\nJazakumullahu khairan.`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -66,6 +82,14 @@ const AkadPage = () => {
             <CheckCircle2 className="h-16 w-16 text-success mx-auto" />
             <h2 className="text-xl font-bold">Akad Sudah Dilakukan</h2>
             <p className="text-muted-foreground">Akad untuk <strong>{shohibul.nama}</strong> sudah tercatat pada {shohibul.akad_timestamp ? formatTanggal(shohibul.akad_timestamp) : "-"}.</p>
+            <p className="text-sm">
+              Status qabul:{" "}
+              <strong>
+                {shohibul.akad_diwakilkan
+                  ? `Diwakilkan (${shohibul.nama_wakil_akad})`
+                  : "Langsung oleh shohibul"}
+              </strong>
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -85,6 +109,14 @@ const AkadPage = () => {
               <p>Nama: <strong>{shohibul.nama}</strong></p>
               <p>Jenis Qurban: <strong className="capitalize">{hewan?.jenis_hewan} ({hewan?.tipe_kepemilikan})</strong></p>
               <p>Waktu Akad: <strong>{akadTime ? formatTanggal(akadTime) : "-"}</strong></p>
+              <p>
+                Status qabul:{" "}
+                <strong>
+                  {isWakilkan
+                    ? `Diwakilkan (${namaWakil})`
+                    : "Langsung oleh shohibul"}
+                </strong>
+              </p>
             </div>
             <p className="text-muted-foreground text-sm italic">Jazakumullahu khairan, akad Anda telah tercatat. Panitia akan menghubungi Anda.</p>
             <Button variant="outline" className="mt-2" onClick={shareWhatsApp}>
@@ -139,6 +171,8 @@ const AkadPage = () => {
     getIlustrasi(),
   ];
 
+  const canSubmit = agreed && (!isWakilkan || namaWakil.trim().length > 0);
+
   return (
     <div className="min-h-screen bg-background p-4 flex justify-center">
       <Card className="max-w-lg w-full shadow-lg">
@@ -147,7 +181,7 @@ const AkadPage = () => {
             <h1 className="text-xl font-bold">{getTitle()}</h1>
             <Badge variant="outline" className="mt-2 capitalize">{shohibul.nama}</Badge>
           </div>
-          <p className="text-sm leading-relaxed">Bismillaah, afwan abu dan ummu, sebelum pelaksanaan, izinkan kami melakukan akad terlebih dahulu sebagai bentuk kesepahaman antara Shohibul Qurban dan Panitia. Berikut poin-poin kesepakatannya:</p>
+          <p className="text-sm leading-relaxed">Bismillaah, afwan abu dan ummu. Sebelum pelaksanaan ibadah qurban, kami selaku panitia menyampaikan penawaran akad (ijab) berikut sebagai bentuk kesepahaman antara Shohibul Qurban dan Panitia. Mohon dibaca dengan seksama, kemudian sampaikan persetujuan (qabul) Anda di bagian bawah.</p>
           <ol className="space-y-3">
             {poinList.map((poin, idx) => (
               <li key={idx} className={`text-sm leading-relaxed p-3 rounded-lg ${idx === 3 ? "bg-yellow-50 border border-yellow-200 dark:bg-yellow-950/30 dark:border-yellow-800" : "bg-muted/30"}`}>
@@ -155,14 +189,56 @@ const AkadPage = () => {
               </li>
             ))}
           </ol>
-          <p className="text-sm leading-relaxed italic text-muted-foreground">Demikian poin-poin kesepakatan yang perlu disetujui di awal. Insya Allah panitia akan bekerja berdasarkan kesepakatan ini. Apakah Abu/Ummu menyetujui kesepakatan tersebut? Semoga Allah mudahkan kita semua dalam pelaksanaan ibadah qurban tahun ini. Aamiin.</p>
+          <p className="text-sm leading-relaxed italic text-muted-foreground">Demikian ijab dari kami selaku panitia. Jika Abu/Ummu menyetujui seluruh poin di atas, silakan sampaikan qabul dengan menekan tombol di bawah. Semoga Allah mudahkan kita semua dalam pelaksanaan ibadah qurban tahun ini. Aamiin.</p>
           <div className="border-t pt-4 space-y-4">
+            {/* Step 1: Checkbox */}
             <label className="flex items-start gap-3 cursor-pointer">
               <Checkbox checked={agreed} onCheckedChange={(v) => setAgreed(!!v)} className="mt-0.5" />
               <span className="text-sm">Saya telah membaca dan memahami poin-poin di atas</span>
             </label>
-            <Button className="w-full h-12 text-base bg-primary hover:bg-primary/90" disabled={!agreed || approveMutation.isPending} onClick={() => approveMutation.mutate()}>
-              {approveMutation.isPending ? "Menyimpan..." : "✓ Saya Menyetujui Kesepakatan Ini"}
+
+            {/* Step 2: Qabul method (only show after checkbox) */}
+            {agreed && (
+              <div className="space-y-3 p-4 rounded-lg bg-muted/30 border">
+                <Label className="text-sm font-semibold">Cara qabul:</Label>
+                <RadioGroup
+                  value={isWakilkan ? "wakilkan" : "langsung"}
+                  onValueChange={(v) => setIsWakilkan(v === "wakilkan")}
+                  className="space-y-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="langsung" id="qabul-langsung" />
+                    <Label htmlFor="qabul-langsung" className="text-sm cursor-pointer">Saya menyetujui sendiri (qabul langsung)</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="wakilkan" id="qabul-wakilkan" />
+                    <Label htmlFor="qabul-wakilkan" className="text-sm cursor-pointer">Saya mewakilkan persetujuan kepada panitia</Label>
+                  </div>
+                </RadioGroup>
+
+                {isWakilkan && (
+                  <div className="space-y-1 mt-2">
+                    <Label className="text-sm">Nama yang mewakilkan *</Label>
+                    <Input
+                      value={namaWakil}
+                      onChange={(e) => setNamaWakil(e.target.value)}
+                      placeholder="Contoh: Abu Ahmad"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Button
+              className="w-full h-12 text-base bg-primary hover:bg-primary/90"
+              disabled={!canSubmit || approveMutation.isPending}
+              onClick={() => approveMutation.mutate()}
+            >
+              {approveMutation.isPending
+                ? "Menyimpan..."
+                : isWakilkan
+                  ? "✓ Konfirmasi — Qabul Diwakilkan"
+                  : "✓ Saya Menyetujui Kesepakatan Ini"}
             </Button>
           </div>
         </CardContent>
