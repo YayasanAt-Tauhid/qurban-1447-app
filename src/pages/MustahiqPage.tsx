@@ -343,75 +343,77 @@ const MustahiqPage = () => {
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
         </div>
       ) : (
-        <div className="table-container">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">#</TableHead>
-                <TableHead>Kupon</TableHead>
-                <TableHead>Nama</TableHead>
-                <TableHead>Kategori</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-12">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered?.length === 0 && (
+        <>
+          <div className="table-container">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Belum ada data mustahiq
-                  </TableCell>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead>Kupon</TableHead>
+                  <TableHead>Nama</TableHead>
+                  <TableHead>Kategori</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-12">Aksi</TableHead>
                 </TableRow>
-              )}
-              {filtered?.map((m, idx) => (
-                <TableRow key={m.id}>
-                  <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                  <TableCell className="font-mono text-xs">{m.nomor_kupon}</TableCell>
-                  <TableCell className="font-medium">{m.nama}</TableCell>
-                  <TableCell className="capitalize">{m.kategori}</TableCell>
-                  <TableCell>
-                    {hasRole(["super_admin", "admin_kupon"]) ? (
-                      <button
-                        onClick={() => toggleStatusMutation.mutate({ id: m.id, currentStatus: m.status_kupon })}
-                        disabled={toggleStatusMutation.isPending}
-                        title={m.status_kupon === "sudah_ambil" ? "Klik untuk batalkan" : "Klik untuk tandai sudah ambil"}
-                        className="cursor-pointer"
-                      >
+              </TableHeader>
+              <TableBody>
+                {filtered?.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      Belum ada data mustahiq
+                    </TableCell>
+                  </TableRow>
+                )}
+                {filtered?.map((m, idx) => (
+                  <TableRow key={m.id}>
+                    <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                    <TableCell className="font-mono text-xs">{m.nomor_kupon}</TableCell>
+                    <TableCell className="font-medium">{m.nama}</TableCell>
+                    <TableCell className="capitalize">{m.kategori}</TableCell>
+                    <TableCell>
+                      {hasRole(["super_admin", "admin_kupon"]) ? (
+                        <button
+                          onClick={() => toggleStatusMutation.mutate({ id: m.id, currentStatus: m.status_kupon })}
+                          disabled={toggleStatusMutation.isPending}
+                          title={m.status_kupon === "sudah_ambil" ? "Klik untuk batalkan" : "Klik untuk tandai sudah ambil"}
+                          className="cursor-pointer"
+                        >
+                          <Badge
+                            variant={m.status_kupon === "sudah_ambil" ? "default" : "outline"}
+                            className={
+                              m.status_kupon === "sudah_ambil"
+                                ? "bg-success/10 text-success border-success/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-colors"
+                                : "hover:bg-success/10 hover:text-success hover:border-success/20 transition-colors"
+                            }
+                          >
+                            {m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil"}
+                          </Badge>
+                        </button>
+                      ) : (
                         <Badge
                           variant={m.status_kupon === "sudah_ambil" ? "default" : "outline"}
-                          className={
-                            m.status_kupon === "sudah_ambil"
-                              ? "bg-success/10 text-success border-success/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-colors"
-                              : "hover:bg-success/10 hover:text-success hover:border-success/20 transition-colors"
-                          }
+                          className={m.status_kupon === "sudah_ambil" ? "bg-success/10 text-success border-success/20" : ""}
                         >
                           {m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil"}
                         </Badge>
-                      </button>
-                    ) : (
-                      <Badge
-                        variant={m.status_kupon === "sudah_ambil" ? "default" : "outline"}
-                        className={m.status_kupon === "sudah_ambil" ? "bg-success/10 text-success border-success/20" : ""}
-                      >
-                        {m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil"}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button size="sm" variant="ghost" onClick={() => setShowPreview(m.id)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        {hasRole(["super_admin", "admin_kupon"]) && (
-          <p className="text-xs text-muted-foreground mt-2">
-            💡 Klik status pada tabel untuk toggle manual (jika kupon hilang)
-          </p>
-        )}
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="ghost" onClick={() => setShowPreview(m.id)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {hasRole(["super_admin", "admin_kupon"]) && (
+            <p className="text-xs text-muted-foreground mt-2">
+              💡 Klik status pada tabel untuk toggle manual (jika kupon hilang)
+            </p>
+          )}
+        </>
       )}
 
       {/* Hidden kupon templates for PDF rendering */}
