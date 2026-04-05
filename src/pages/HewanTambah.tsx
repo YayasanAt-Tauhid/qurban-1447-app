@@ -37,25 +37,6 @@ const HewanTambah = () => {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("hewan_qurban").insert({
-        nomor_urut: form.nomor_urut,
-        jenis_hewan: form.jenis_hewan,
-        tipe_kepemilikan: form.tipe_kepemilikan,
-        jenis_kelamin: form.jenis_kelamin,
-        ras: form.ras || null,
-        nama_penjual: form.nama_penjual || null,
-        hp_penjual: form.hp_penjual || null,
-        alamat_penjual: form.alamat_penjual || null,
-        harga,
-        estimasi_bobot: parseInt(form.estimasi_bobot) || null,
-        iuran_per_orang: iuran,
-        kuota,
-        uang_muka: parseInt(form.uang_muka) || 0,
-        catatan: form.catatan || null,
-      });
-      if (error) throw error;
-    },
-    mutationFn: async () => {
       const { data: inserted, error } = await supabase.from("hewan_qurban").insert({
         nomor_urut: form.nomor_urut,
         jenis_hewan: form.jenis_hewan,
