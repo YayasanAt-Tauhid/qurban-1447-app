@@ -22,6 +22,7 @@ import LaporanPublik from "./pages/LaporanPublik";
 import DistribusiPage from "./pages/DistribusiPage";
 import PanitiaPage from "./pages/PanitiaPage";
 import KeuanganPage from "./pages/KeuanganPage";
+import UndianBagian from "./pages/UndianBagian";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/hewan" element={<ProtectedLayout><HewanList /></ProtectedLayout>} />
             <Route path="/hewan/tambah" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_hewan"]}><HewanTambah /></RoleGuard></ProtectedLayout>} />
             <Route path="/hewan/:id" element={<ProtectedLayout><HewanDetail /></ProtectedLayout>} />
+            <Route path="/hewan/:hewanId/undian" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_hewan", "admin_pendaftaran"]}><UndianBagian /></RoleGuard></ProtectedLayout>} />
             <Route path="/shohibul" element={<ProtectedLayout><ShohibulList /></ProtectedLayout>} />
             <Route path="/shohibul/daftar" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_pendaftaran"]}><ShohibulDaftar /></RoleGuard></ProtectedLayout>} />
             <Route path="/shohibul/:id" element={<ProtectedLayout><ShohibulDetail /></ProtectedLayout>} />

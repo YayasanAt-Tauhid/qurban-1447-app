@@ -213,6 +213,15 @@ const HewanDetail = () => {
                 <Pencil className="mr-2 h-4 w-4" /> Edit
               </Button>
             )}
+            {hewan.jenis_hewan === "sapi" && hewan.tipe_kepemilikan === "kolektif" && (
+              <Button
+                variant="outline"
+                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                onClick={() => navigate(`/hewan/${hewan.id}/undian`)}
+              >
+                🎯 Pembagian Bagian
+              </Button>
+            )}
             <Button onClick={cetakDistribusi}>
               <Printer className="mr-2 h-4 w-4" /> Cetak
             </Button>

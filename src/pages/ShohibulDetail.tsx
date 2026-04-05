@@ -112,7 +112,7 @@ const ShohibulDetail = () => {
     }
     const normalized = noWa.startsWith("0") ? "62" + noWa.slice(1) : noWa;
     const akadUrl = `${window.location.origin}/akad/${id}`;
-    const pesan = encodeURIComponent(`Assalamu'alaikum ${shohibul?.nama}, berikut link akad qurban Anda: ${akadUrl}`);
+    const pesan = encodeURIComponent(`Bismillaah, ${shohibul?.nama}, berikut link akad qurbannya: ${akadUrl}`);
     window.open(`https://wa.me/${normalized}?text=${pesan}`, "_blank");
   };
 
