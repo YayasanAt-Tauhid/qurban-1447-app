@@ -15,15 +15,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { formatRupiah, formatTanggal } from "@/lib/qurban-utils";
-import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard } from "lucide-react";
+import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard, FileUp } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import ImportExcelDialog from "@/components/ImportExcelDialog";
+import { formatRupiah as fmtR } from "@/lib/qurban-utils";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const KATEGORI_SUGGESTIONS = ["pembelian hewan", "operasional", "konsumsi", "perlengkapan", "iuran shohibul"];
 
 const KeuanganPage = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, panitiaId } = useAuth();
   const queryClient = useQueryClient();
+  const [showKasImport, setShowKasImport] = useState(false);
   const [filterJenis, setFilterJenis] = useState("semua");
   const [filterMetode, setFilterMetode] = useState("semua");
   const [searchKeterangan, setSearchKeterangan] = useState("");
@@ -265,43 +268,48 @@ const KeuanganPage = () => {
               <Input placeholder="Cari keterangan..." className="pl-10 w-[200px]" value={searchKeterangan} onChange={(e) => setSearchKeterangan(e.target.value)} />
             </div>
             {isAdmin() && (
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button><Plus className="mr-2 h-4 w-4" /> Tambah Transaksi</Button>
-                </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Tambah Transaksi</DialogTitle></DialogHeader>
-                <div className="space-y-3">
-                  <div><Label>Tanggal</Label><Input type="date" value={formTanggal} onChange={(e) => setFormTanggal(e.target.value)} /></div>
-                  <div>
-                    <Label>Jenis</Label>
-                    <RadioGroup value={formJenis} onValueChange={(v) => setFormJenis(v as any)} className="flex gap-4 mt-1">
-                      <div className="flex items-center gap-2"><RadioGroupItem value="masuk" id="j-masuk" /><Label htmlFor="j-masuk">Masuk</Label></div>
-                      <div className="flex items-center gap-2"><RadioGroupItem value="keluar" id="j-keluar" /><Label htmlFor="j-keluar">Keluar</Label></div>
-                    </RadioGroup>
+              <>
+                <Button variant="outline" onClick={() => setShowKasImport(true)}>
+                  <FileUp className="mr-2 h-4 w-4" /> Import Excel
+                </Button>
+                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button><Plus className="mr-2 h-4 w-4" /> Tambah Transaksi</Button>
+                  </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Tambah Transaksi</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <div><Label>Tanggal</Label><Input type="date" value={formTanggal} onChange={(e) => setFormTanggal(e.target.value)} /></div>
+                    <div>
+                      <Label>Jenis</Label>
+                      <RadioGroup value={formJenis} onValueChange={(v) => setFormJenis(v as any)} className="flex gap-4 mt-1">
+                        <div className="flex items-center gap-2"><RadioGroupItem value="masuk" id="j-masuk" /><Label htmlFor="j-masuk">Masuk</Label></div>
+                        <div className="flex items-center gap-2"><RadioGroupItem value="keluar" id="j-keluar" /><Label htmlFor="j-keluar">Keluar</Label></div>
+                      </RadioGroup>
+                    </div>
+                    <div>
+                      <Label>Metode</Label>
+                      <RadioGroup value={formMetode} onValueChange={(v) => setFormMetode(v as any)} className="flex gap-4 mt-1">
+                        <div className="flex items-center gap-2"><RadioGroupItem value="tunai" id="m-tunai" /><Label htmlFor="m-tunai">Tunai</Label></div>
+                        <div className="flex items-center gap-2"><RadioGroupItem value="bank" id="m-bank" /><Label htmlFor="m-bank">Bank</Label></div>
+                      </RadioGroup>
+                    </div>
+                    <div>
+                      <Label>Kategori</Label>
+                      <Input value={formKategori} onChange={(e) => setFormKategori(e.target.value)} placeholder="Ketik kategori..." list="kategori-list" />
+                      <datalist id="kategori-list">
+                        {KATEGORI_SUGGESTIONS.map((k) => <option key={k} value={k} />)}
+                      </datalist>
+                    </div>
+                    <div><Label>Keterangan</Label><Textarea value={formKeterangan} onChange={(e) => setFormKeterangan(e.target.value)} /></div>
+                    <div><Label>Jumlah (Rp)</Label><Input type="number" value={formJumlah} onChange={(e) => setFormJumlah(e.target.value)} placeholder="0" /></div>
+                    <Button className="w-full" onClick={() => insertMutation.mutate()} disabled={insertMutation.isPending || !formJumlah}>
+                      {insertMutation.isPending ? "Menyimpan..." : "Simpan"}
+                    </Button>
                   </div>
-                  <div>
-                    <Label>Metode</Label>
-                    <RadioGroup value={formMetode} onValueChange={(v) => setFormMetode(v as any)} className="flex gap-4 mt-1">
-                      <div className="flex items-center gap-2"><RadioGroupItem value="tunai" id="m-tunai" /><Label htmlFor="m-tunai">Tunai</Label></div>
-                      <div className="flex items-center gap-2"><RadioGroupItem value="bank" id="m-bank" /><Label htmlFor="m-bank">Bank</Label></div>
-                    </RadioGroup>
-                  </div>
-                  <div>
-                    <Label>Kategori</Label>
-                    <Input value={formKategori} onChange={(e) => setFormKategori(e.target.value)} placeholder="Ketik kategori..." list="kategori-list" />
-                    <datalist id="kategori-list">
-                      {KATEGORI_SUGGESTIONS.map((k) => <option key={k} value={k} />)}
-                    </datalist>
-                  </div>
-                  <div><Label>Keterangan</Label><Textarea value={formKeterangan} onChange={(e) => setFormKeterangan(e.target.value)} /></div>
-                  <div><Label>Jumlah (Rp)</Label><Input type="number" value={formJumlah} onChange={(e) => setFormJumlah(e.target.value)} placeholder="0" /></div>
-                  <Button className="w-full" onClick={() => insertMutation.mutate()} disabled={insertMutation.isPending || !formJumlah}>
-                    {insertMutation.isPending ? "Menyimpan..." : "Simpan"}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+              </>
             )}
           </div>
 
@@ -492,6 +500,69 @@ const KeuanganPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Import Kas Dialog */}
+      <ImportExcelDialog
+        open={showKasImport}
+        onOpenChange={setShowKasImport}
+        title="Import Transaksi Kas dari Excel"
+        columns={[
+          { key: "tanggal", label: "Tanggal", required: true },
+          { key: "jenis", label: "Jenis", required: true },
+          { key: "jumlah", label: "Jumlah", required: true },
+          { key: "metode", label: "Metode" },
+          { key: "kategori", label: "Kategori" },
+          { key: "keterangan", label: "Keterangan" },
+        ]}
+        templateData={[
+          { tanggal: "2025-06-07", jenis: "masuk", jumlah: 500000, metode: "tunai", kategori: "iuran shohibul", keterangan: "Iuran Ahmad" },
+          { tanggal: "2025-06-08", jenis: "keluar", jumlah: 200000, metode: "bank", kategori: "operasional", keterangan: "Beli tali" },
+        ]}
+        templateFileName="template-kas.xlsx"
+        validateRow={(r) => {
+          const jenis = String(r.jenis ?? "").toLowerCase().trim();
+          if (jenis !== "masuk" && jenis !== "keluar") return false;
+          const jumlah = Number(r.jumlah);
+          if (!jumlah || jumlah <= 0) return false;
+          return !!r.tanggal;
+        }}
+        summaryRender={(rows) => {
+          const masuk = rows.filter(r => String(r.jenis).toLowerCase().trim() === "masuk").reduce((s, r) => s + Number(r.jumlah), 0);
+          const keluar = rows.filter(r => String(r.jenis).toLowerCase().trim() === "keluar").reduce((s, r) => s + Number(r.jumlah), 0);
+          return (
+            <div className="flex gap-4 text-sm">
+              <span className="text-success font-medium">Masuk: {formatRupiah(masuk)}</span>
+              <span className="text-destructive font-medium">Keluar: {formatRupiah(keluar)}</span>
+            </div>
+          );
+        }}
+        onImport={async (rows) => {
+          const inserts = rows.map((r) => {
+            let tanggal = String(r.tanggal).trim();
+            // Try DD/MM/YYYY format
+            const ddmmMatch = tanggal.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+            if (ddmmMatch) tanggal = `${ddmmMatch[3]}-${ddmmMatch[2].padStart(2, "0")}-${ddmmMatch[1].padStart(2, "0")}`;
+            
+            const metode = ["tunai", "bank"].includes(String(r.metode ?? "").toLowerCase().trim())
+              ? String(r.metode).toLowerCase().trim() as "tunai" | "bank"
+              : "tunai" as const;
+
+            return {
+              tanggal,
+              jenis: String(r.jenis).toLowerCase().trim() as "masuk" | "keluar",
+              jumlah: Math.round(Number(r.jumlah)),
+              metode,
+              kategori: r.kategori ? String(r.kategori).trim() : null,
+              keterangan: r.keterangan ? String(r.keterangan).trim() : null,
+              dibuat_oleh: panitiaId,
+            };
+          });
+          const { error } = await supabase.from("kas").insert(inserts);
+          if (error) throw error;
+          queryClient.invalidateQueries({ queryKey: ["kas-list"] });
+          queryClient.invalidateQueries({ queryKey: ["iuran-payments"] });
+          toast.success(`${inserts.length} transaksi berhasil diimport`);
+        }}
+      />
     </div>
   );
 };
