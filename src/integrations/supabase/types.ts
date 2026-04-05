@@ -311,6 +311,138 @@ export type Database = {
           },
         ]
       }
+      log_undian: {
+        Row: {
+          bagian: string
+          created_at: string | null
+          dilakukan_oleh: string | null
+          hewan_id: string
+          id: string
+          peserta: string[]
+          pemenang_id: string
+          seed: string
+        }
+        Insert: {
+          bagian: string
+          created_at?: string | null
+          dilakukan_oleh?: string | null
+          hewan_id: string
+          id?: string
+          peserta: string[]
+          pemenang_id: string
+          seed: string
+        }
+        Update: {
+          bagian?: string
+          created_at?: string | null
+          dilakukan_oleh?: string | null
+          hewan_id?: string
+          id?: string
+          peserta?: string[]
+          pemenang_id?: string
+          seed?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "log_undian_hewan_id_fkey"
+            columns: ["hewan_id"]
+            isOneToOne: false
+            referencedRelation: "hewan_qurban"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "log_undian_pemenang_id_fkey"
+            columns: ["pemenang_id"]
+            isOneToOne: false
+            referencedRelation: "shohibul_qurban"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pilihan_bagian: {
+        Row: {
+          bagian: string
+          created_at: string | null
+          hewan_id: string
+          id: string
+          shohibul_id: string
+        }
+        Insert: {
+          bagian: string
+          created_at?: string | null
+          hewan_id: string
+          id?: string
+          shohibul_id: string
+        }
+        Update: {
+          bagian?: string
+          created_at?: string | null
+          hewan_id?: string
+          id?: string
+          shohibul_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilihan_bagian_hewan_id_fkey"
+            columns: ["hewan_id"]
+            isOneToOne: false
+            referencedRelation: "hewan_qurban"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilihan_bagian_shohibul_id_fkey"
+            columns: ["shohibul_id"]
+            isOneToOne: false
+            referencedRelation: "shohibul_qurban"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      status_bagian: {
+        Row: {
+          bagian: string
+          catatan_panitia: string | null
+          hewan_id: string
+          id: string
+          pemenang_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bagian: string
+          catatan_panitia?: string | null
+          hewan_id: string
+          id?: string
+          pemenang_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bagian?: string
+          catatan_panitia?: string | null
+          hewan_id?: string
+          id?: string
+          pemenang_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "status_bagian_hewan_id_fkey"
+            columns: ["hewan_id"]
+            isOneToOne: false
+            referencedRelation: "hewan_qurban"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "status_bagian_pemenang_id_fkey"
+            columns: ["pemenang_id"]
+            isOneToOne: false
+            referencedRelation: "shohibul_qurban"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shohibul_qurban: {
         Row: {
           akad_dilakukan: boolean | null
