@@ -106,7 +106,7 @@ const MustahiqPage = () => {
       return { nama: found.nama, nomor_kupon: found.nomor_kupon ?? "", kategori: found.kategori };
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["mustahiq-list"] });
+      queryClient.invalidateQueries({ queryKey: ["mustahiq-list"], refetchType: "active" });
       setScanResult(result);
       setScanState("success");
     },
@@ -141,11 +141,10 @@ const MustahiqPage = () => {
       scanner.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decoded: string) => {
-          scanner.stop().then(() => {
-            scannerRef.current = null;
-            scanMutation.mutate(decoded);
-          });
+        async (decoded: string) => {
+          await scanner.stop();
+          scannerRef.current = null;
+          scanMutation.mutate(decoded);
         },
         () => {}
       ).then(() => {
@@ -431,9 +430,12 @@ const MustahiqPage = () => {
             <DialogTitle>Scan Kupon QR</DialogTitle>
           </DialogHeader>
 
-          {scanState === "scanning" && (
-            <div id="qr-reader" key={scanKey} className="w-full" />
-          )}
+          <div
+            id="qr-reader"
+            key={scanKey}
+            className="w-full"
+            style={{ display: scanState === "scanning" ? "block" : "none" }}
+          />
 
           {scanState === "success" && scanResult && (
             <div className="flex flex-col items-center gap-3 py-4">
