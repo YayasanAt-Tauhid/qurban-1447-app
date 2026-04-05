@@ -407,6 +407,11 @@ const MustahiqPage = () => {
             </TableBody>
           </Table>
         </div>
+        {hasRole(["super_admin", "admin_kupon"]) && (
+          <p className="text-xs text-muted-foreground mt-2">
+            💡 Klik status pada tabel untuk toggle manual (jika kupon hilang)
+          </p>
+        )}
       )}
 
       {/* Hidden kupon templates for PDF rendering */}
