@@ -59,15 +59,19 @@ const HewanDetail = () => {
     enabled: !!id,
   });
 
+  // Individu: kuota per kategori = 1 shohibul, tapi shohibul itu dapat SEMUA slot kategori tsb
+  // Kolektif: kuota per kategori = jumlah slots (maks berapa shohibul bisa request)
+  const isIndividu = hewan?.tipe_kepemilikan === "individu";
+
   const toggleMutation = useMutation({
     mutationFn: async ({ bagian, shohibulId }: { bagian: string; shohibulId: string }) => {
       const existing = requestList?.find((r) => r.bagian === bagian && r.shohibul_qurban_id === shohibulId);
+      const kategori = KATEGORI_BAGIAN.find(k => k.id === bagian);
       if (existing) {
         // Hapus dari request_bagian
         const { error } = await supabase.from("request_bagian").delete().eq("id", existing.id);
         if (error) throw error;
         // Hapus juga semua pilihan_bagian slot kategori ini milik shohibul ini
-        const kategori = KATEGORI_BAGIAN.find(k => k.id === bagian);
         if (kategori) {
           for (const slot of kategori.slots) {
             await supabase.from("pilihan_bagian")
@@ -78,29 +82,44 @@ const HewanDetail = () => {
           }
         }
       } else {
-        // Cek kuota — berapa orang sudah request kategori ini
+        // Cek kuota efektif
         const sudahRequest = requestList?.filter(r => r.bagian === bagian).length ?? 0;
-        const kuota = getKuotaKategori(bagian);
-        if (sudahRequest >= kuota) {
-          throw new Error(`Kuota penuh (maks ${kuota} orang untuk bagian ini)`);
+        // Individu: 1 shohibul per kategori (tapi dapat semua slot)
+        // Kolektif: maks sesuai jumlah slot
+        const kuotaEfektif = isIndividu ? 1 : getKuotaKategori(bagian);
+        if (sudahRequest >= kuotaEfektif) {
+          throw new Error(
+            isIndividu
+              ? `Bagian ini sudah direquest shohibul lain`
+              : `Kuota penuh (maks ${kuotaEfektif} orang untuk bagian ini)`
+          );
         }
         // Simpan ke request_bagian
         const { error } = await supabase.from("request_bagian").insert({ bagian, hewan_id: id!, shohibul_qurban_id: shohibulId });
         if (error) throw error;
-        // Sync ke pilihan_bagian — ambil slot berikutnya yang belum ada peminatnya
-        const kategori = KATEGORI_BAGIAN.find(k => k.id === bagian);
+        // Sync ke pilihan_bagian
         if (kategori) {
-          const { data: sudahPilih } = await supabase
-            .from("pilihan_bagian")
-            .select("bagian")
-            .eq("hewan_id", id!)
-            .in("bagian", kategori.slots);
-          const slotTerpakai = new Set((sudahPilih ?? []).map(p => p.bagian));
-          const slotKosong = kategori.slots.find(s => !slotTerpakai.has(s));
-          if (slotKosong) {
-            await supabase.from("pilihan_bagian").insert({
-              hewan_id: id!, shohibul_id: shohibulId, bagian: slotKosong,
-            });
+          if (isIndividu) {
+            // Individu: langsung dapat SEMUA slot dari kategori ini (misal tulang_kaki → 4 slot sekaligus)
+            for (const slot of kategori.slots) {
+              await supabase.from("pilihan_bagian").insert({
+                hewan_id: id!, shohibul_id: shohibulId, bagian: slot,
+              });
+            }
+          } else {
+            // Kolektif: ambil slot berikutnya yang belum ada pemiliknya
+            const { data: sudahPilih } = await supabase
+              .from("pilihan_bagian")
+              .select("bagian")
+              .eq("hewan_id", id!)
+              .in("bagian", kategori.slots);
+            const slotTerpakai = new Set((sudahPilih ?? []).map(p => p.bagian));
+            const slotKosong = kategori.slots.find(s => !slotTerpakai.has(s));
+            if (slotKosong) {
+              await supabase.from("pilihan_bagian").insert({
+                hewan_id: id!, shohibul_id: shohibulId, bagian: slotKosong,
+              });
+            }
           }
         }
       }
@@ -186,10 +205,17 @@ const HewanDetail = () => {
 
   const getBadgeKategori = (kategoriId: string) => {
     const reqs = getRequestsForKategori(kategoriId);
-    const kuota = getKuotaKategori(kategoriId);
+    const kuotaKolektif = getKuotaKategori(kategoriId);
     if (reqs.length === 0) return <Badge variant="outline" className="text-muted-foreground">Belum ada minat</Badge>;
-    if (reqs.length < kuota) return <Badge className="bg-success/10 text-success border-success/20">{reqs.length}/{kuota} peminat</Badge>;
-    return <Badge className="bg-warning/10 text-warning border-warning/20">Penuh ({kuota}/{kuota})</Badge>;
+    if (isIndividu) {
+      // Individu: cukup tampilkan siapa yang request, dan info dapat semua slot
+      const slotCount = KATEGORI_BAGIAN.find(k => k.id === kategoriId)?.slots.length ?? 1;
+      return <Badge className="bg-success/10 text-success border-success/20">
+        ✓ Diminta {slotCount > 1 ? `(dapat semua ${slotCount})` : ""}
+      </Badge>;
+    }
+    if (reqs.length < kuotaKolektif) return <Badge className="bg-success/10 text-success border-success/20">{reqs.length}/{kuotaKolektif} peminat</Badge>;
+    return <Badge className="bg-warning/10 text-warning border-warning/20">Penuh ({kuotaKolektif}/{kuotaKolektif})</Badge>;
   };
 
   const cetakDistribusi = () => {
@@ -394,8 +420,13 @@ const HewanDetail = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {KATEGORI_BAGIAN.map(({ id, label, icon, slots }) => {
             const reqs = getRequestsForKategori(id);
-            const kuota = slots.length;
-            const penuh = reqs.length >= kuota;
+            // Individu: penuh jika sudah ada 1 shohibul yang request
+            // Kolektif: penuh jika peminat sudah = jumlah slot
+            const kuotaEfektif = isIndividu ? 1 : slots.length;
+            const penuh = reqs.length >= kuotaEfektif;
+            const infoKuota = isIndividu
+              ? `1 shohibul (dapat semua ${slots.length})`
+              : `Maks ${slots.length} orang`;
             return (
               <Card key={id} className={`hover:shadow-md transition-shadow ${penuh ? "border-warning/50" : ""}`}>
                 <CardContent className="p-4 space-y-3">
@@ -404,7 +435,7 @@ const HewanDetail = () => {
                       <span className="text-2xl">{icon}</span>
                       <div>
                         <span className="font-semibold text-sm">{label}</span>
-                        <p className="text-xs text-muted-foreground">Maks {kuota} orang</p>
+                        <p className="text-xs text-muted-foreground">{infoKuota}</p>
                       </div>
                     </div>
                     {getBadgeKategori(id)}
@@ -429,7 +460,9 @@ const HewanDetail = () => {
                               className="text-xs h-7"
                               onClick={() => toggleMutation.mutate({ bagian: id, shohibulId: s.id })}
                               disabled={disabled}
-                              title={penuh && !hasRequest ? `Kuota penuh (maks ${kuota} orang)` : ""}
+                              title={penuh && !hasRequest
+                                ? (isIndividu ? `Bagian ini sudah direquest shohibul lain` : `Kuota penuh (maks ${slots.length} orang)`)
+                                : ""}
                             >
                               {s.nama}
                             </Button>
@@ -437,7 +470,11 @@ const HewanDetail = () => {
                         })}
                       </div>
                       {penuh && (
-                        <p className="text-xs text-warning mt-1">⚠️ Kuota penuh — tidak bisa tambah peminat lagi</p>
+                        <p className="text-xs text-warning mt-1">
+                          {isIndividu
+                            ? `✅ Diminta — shohibul mendapat semua ${slots.length} ${label}`
+                            : `⚠️ Kuota penuh — tidak bisa tambah peminat lagi`}
+                        </p>
                       )}
                     </div>
                   )}

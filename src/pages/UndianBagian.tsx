@@ -246,17 +246,32 @@ const UndianBagian = () => {
   });
 
   // ── Aksi: tetapkan kategori aman (peminat ≤ kuota) langsung ──
-  // Setiap shohibul yang request dapat satu slot
+  // Jika hanya 1 shohibul yang request → dia dapat SEMUA slot kategori ini
+  // Jika peminat > 1 (tapi ≤ kuota) → setiap shohibul dapat 1 slot masing-masing
   const handleTetapkanAman = async (kategori: typeof KATEGORI_BAGIAN[0]) => {
     const requests = getRequestKategori(kategori.id);
-    for (let i = 0; i < requests.length && i < kategori.slots.length; i++) {
-      await finalisasiSlot.mutateAsync({
-        slotId: kategori.slots[i],
-        status: "selesai",
-        pemenangId: requests[i].shohibul_qurban_id,
-      });
+    if (requests.length === 1) {
+      // 1 shohibul saja → dapat semua slot
+      for (const slotId of kategori.slots) {
+        await finalisasiSlot.mutateAsync({
+          slotId,
+          status: "selesai",
+          pemenangId: requests[0].shohibul_qurban_id,
+        });
+      }
+      const nama = requests[0].shohibul_qurban?.nama ?? getShohibul(requests[0].shohibul_qurban_id)?.nama ?? "?";
+      toast.success(`✅ ${kategori.label} (semua ${kategori.slots.length}) → ${nama}`);
+    } else {
+      // Beberapa shohibul, masing-masing dapat 1 slot
+      for (let i = 0; i < requests.length && i < kategori.slots.length; i++) {
+        await finalisasiSlot.mutateAsync({
+          slotId: kategori.slots[i],
+          status: "selesai",
+          pemenangId: requests[i].shohibul_qurban_id,
+        });
+      }
+      toast.success(`✅ ${kategori.label} ditetapkan untuk ${requests.length} shohibul.`);
     }
-    toast.success(`✅ ${kategori.label} ditetapkan untuk ${requests.length} shohibul.`);
   };
 
   // ── Aksi: shohibul mengalah (hapus request-nya) ──
@@ -275,8 +290,19 @@ const UndianBagian = () => {
     const sisa = (freshRequests ?? []) as RequestRow[];
     const kategori = KATEGORI_BAGIAN.find(k => k.id === kategoriId)!;
 
-    if (sisa.length <= kategori.slots.length && sisa.length > 0) {
-      // Sudah tidak sengketa lagi — tetapkan langsung
+    if (sisa.length === 1) {
+      // Tinggal 1 shohibul → dia dapat SEMUA slot
+      for (const slotId of kategori.slots) {
+        await finalisasiSlot.mutateAsync({
+          slotId,
+          status: "selesai",
+          pemenangId: sisa[0].shohibul_qurban_id,
+        });
+      }
+      const nama = sisa[0].shohibul_qurban?.nama ?? getShohibul(sisa[0].shohibul_qurban_id)?.nama ?? "?";
+      toast.success(`Musyawarah selesai! ${kategori.label} (semua ${kategori.slots.length}) → ${nama}`);
+    } else if (sisa.length > 0 && sisa.length <= kategori.slots.length) {
+      // Beberapa shohibul, masing-masing dapat 1 slot
       for (let i = 0; i < sisa.length && i < kategori.slots.length; i++) {
         await finalisasiSlot.mutateAsync({
           slotId: kategori.slots[i],
