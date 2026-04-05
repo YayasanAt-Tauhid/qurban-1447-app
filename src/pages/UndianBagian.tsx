@@ -37,8 +37,8 @@ export const BAGIAN_KOLEKTIF: { id: string; label: string; kuota: number; bisa_m
   { id: "kulit_3",       label: "Kulit 3",        kuota: 1, bisa_multi: true  },
 ];
 
-// ─── Kategori bagian (untuk survei awal) ─────────────────────────────────────
-// Setiap kategori bisa punya 1 atau lebih slot. Kuota = max shohibul yang bisa dapat.
+// ─── Kategori bagian (untuk survei awal & undian) ────────────────────────────
+// slots.length = kuota maksimum shohibul yang bisa dapat kategori ini
 export const KATEGORI_BAGIAN: { id: string; label: string; icon: string; slots: string[] }[] = [
   { id: "ekor",          label: "Ekor",          icon: "🦴", slots: ["ekor"] },
   { id: "rangka_kepala", label: "Rangka Kepala", icon: "🐄", slots: ["rangka_kepala"] },
@@ -65,23 +65,38 @@ export function getKategoriDariSlot(slotId: string): string {
   return KATEGORI_BAGIAN.find(k => k.slots.includes(slotId))?.id ?? slotId;
 }
 
-type StatusBagian = "aman" | "sengketa" | "undian" | "selesai" | "kosong";
+// ─── Types ───────────────────────────────────────────────────────────────────
+type StatusKategori = "aman" | "sengketa" | "selesai" | "kosong";
 
-interface PilihanRow { id: string; shohibul_id: string; bagian: string; }
-interface StatusRow  { id: string; bagian: string; status: StatusBagian; pemenang_id: string | null; catatan_panitia: string | null; }
+// Request dari survei awal (per kategori, bukan per slot)
+interface RequestRow {
+  id: string;
+  shohibul_qurban_id: string;
+  bagian: string; // kategori id, misal "tulang_kaki"
+  catatan: string | null;
+  shohibul_qurban: { nama: string } | null;
+}
+
+// Status finalisasi per slot (untuk menyimpan pemenang akhir)
+interface StatusRow {
+  id: string;
+  bagian: string; // slot id, misal "tulang_kaki_1"
+  status: string;
+  pemenang_id: string | null;
+  catatan_panitia: string | null;
+}
+
 interface ShohibulRow { id: string; nama: string; no_wa: string | null; }
 
-const statusColor: Record<StatusBagian, string> = {
+const statusColor: Record<StatusKategori, string> = {
   aman:     "bg-green-100 text-green-700 border-green-200",
   sengketa: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  undian:   "bg-blue-100 text-blue-700 border-blue-200",
   selesai:  "bg-green-200 text-green-800 border-green-300",
   kosong:   "bg-gray-100 text-gray-500 border-gray-200",
 };
-const statusLabel: Record<StatusBagian, string> = {
+const statusLabel: Record<StatusKategori, string> = {
   aman:     "✅ Aman",
   sengketa: "⚠️ Sengketa",
-  undian:   "🎲 Undian",
   selesai:  "✔️ Selesai",
   kosong:   "○ Kosong",
 };
@@ -105,10 +120,10 @@ const UndianBagian = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const [animating, setAnimating] = useState<string | null>(null); // bagian yg sedang diundi
+  const [animating, setAnimating] = useState<string | null>(null);
   const [animName, setAnimName] = useState("");
 
-  // ── Data hewan & shohibul ──
+  // ── Data hewan ──
   const { data: hewan } = useQuery({
     queryKey: ["hewan-undian", hewanId],
     queryFn: async () => {
@@ -123,6 +138,7 @@ const UndianBagian = () => {
     enabled: !!hewanId,
   });
 
+  // ── Data shohibul ──
   const { data: shohibulList } = useQuery<ShohibulRow[]>({
     queryKey: ["shohibul-undian", hewanId],
     queryFn: async () => {
@@ -131,38 +147,35 @@ const UndianBagian = () => {
         .select("id, nama, no_wa")
         .eq("hewan_id", hewanId!);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as ShohibulRow[];
     },
     enabled: !!hewanId,
   });
 
-  // ── Pilihan semua shohibul ──
-  const { data: pilihanList } = useQuery<PilihanRow[]>({
-    queryKey: ["pilihan-bagian", hewanId],
+  // ── Request bagian dari survei awal (per kategori) ──
+  const { data: requestList } = useQuery<RequestRow[]>({
+    queryKey: ["request-bagian-undian", hewanId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("pilihan_bagian")
-        .select("id, shohibul_id, bagian")
+        .from("request_bagian")
+        .select("id, shohibul_qurban_id, bagian, catatan, shohibul_qurban(nama)")
         .eq("hewan_id", hewanId!);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as RequestRow[];
     },
     enabled: !!hewanId,
   });
 
-  // ── Status per bagian ──
+  // ── Status finalisasi per slot ──
   const { data: statusList } = useQuery<StatusRow[]>({
     queryKey: ["status-bagian", hewanId],
-    queryFn: async (): Promise<StatusRow[]> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("status_bagian")
         .select("id, bagian, status, pemenang_id, catatan_panitia")
         .eq("hewan_id", hewanId!);
       if (error) throw error;
-      return (data ?? []).map(row => ({
-        ...row,
-        status: row.status as StatusBagian,
-      }));
+      return (data ?? []) as StatusRow[];
     },
     enabled: !!hewanId,
   });
@@ -172,8 +185,8 @@ const UndianBagian = () => {
     if (!hewanId) return;
     const ch = supabase
       .channel(`undian-${hewanId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "pilihan_bagian", filter: `hewan_id=eq.${hewanId}` },
-        () => { qc.invalidateQueries({ queryKey: ["pilihan-bagian", hewanId] }); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "request_bagian", filter: `hewan_id=eq.${hewanId}` },
+        () => { qc.invalidateQueries({ queryKey: ["request-bagian-undian", hewanId] }); })
       .on("postgres_changes", { event: "*", schema: "public", table: "status_bagian", filter: `hewan_id=eq.${hewanId}` },
         () => { qc.invalidateQueries({ queryKey: ["status-bagian", hewanId] }); })
       .subscribe();
@@ -181,99 +194,111 @@ const UndianBagian = () => {
   }, [hewanId, qc]);
 
   // ── Helpers ──
-  const getStatus = useCallback((bagianId: string): StatusRow | undefined =>
-    (statusList as StatusRow[] | undefined)?.find(s => s.bagian === bagianId), [statusList]);
-
-  const getPilihan = useCallback((bagianId: string): PilihanRow[] =>
-    pilihanList?.filter(p => p.bagian === bagianId) ?? [], [pilihanList]);
-
   const getShohibul = useCallback((id: string) =>
-    shohibulList?.find(s => s.id === id), [shohibulList]);
+    (shohibulList as ShohibulRow[] | undefined)?.find(s => s.id === id), [shohibulList]);
 
-  // Hitung status otomatis berdasarkan jumlah peminat
-  const computeStatus = useCallback((bagianId: string): StatusBagian => {
-    const st = getStatus(bagianId);
-    if (st?.status === "selesai" || st?.status === "undian") return st.status;
-    const p = getPilihan(bagianId);
-    if (p.length === 0) return "kosong";
-    if (p.length === 1) return "aman";
-    return "sengketa";
-  }, [getStatus, getPilihan]);
+  // Ambil semua request untuk kategori tertentu
+  const getRequestKategori = useCallback((kategoriId: string): RequestRow[] =>
+    (requestList as RequestRow[] | undefined)?.filter(r => r.bagian === kategoriId) ?? [],
+    [requestList]);
 
-  // ── Mutasi: simpan/hapus pilihan ──
-  const togglePilihan = useMutation({
-    mutationFn: async ({ shohibulId, bagian }: { shohibulId: string; bagian: string }) => {
-      const existing = pilihanList?.find(p => p.shohibul_id === shohibulId && p.bagian === bagian);
+  // Ambil status finalisasi untuk slot tertentu
+  const getStatusSlot = useCallback((slotId: string): StatusRow | undefined =>
+    (statusList as StatusRow[] | undefined)?.find(s => s.bagian === slotId), [statusList]);
+
+  // Cek apakah semua slot kategori sudah selesai
+  const isKategoriSelesai = useCallback((kategori: typeof KATEGORI_BAGIAN[0]): boolean => {
+    const requests = getRequestKategori(kategori.id);
+    if (requests.length === 0) return false;
+    // Semua shohibul yang request sudah punya slot selesai
+    const selesaiSlots = kategori.slots.filter(slotId => {
+      const st = getStatusSlot(slotId);
+      return st?.status === "selesai";
+    });
+    return selesaiSlots.length >= Math.min(requests.length, kategori.slots.length);
+  }, [getRequestKategori, getStatusSlot]);
+
+  // Hitung status keseluruhan kategori
+  const computeStatusKategori = useCallback((kategori: typeof KATEGORI_BAGIAN[0]): StatusKategori => {
+    const requests = getRequestKategori(kategori.id);
+    if (requests.length === 0) return "kosong";
+    if (isKategoriSelesai(kategori)) return "selesai";
+    // Sengketa jika peminat > kuota (jumlah slot)
+    if (requests.length > kategori.slots.length) return "sengketa";
+    return "aman";
+  }, [getRequestKategori, isKategoriSelesai]);
+
+  // ── Mutasi: finalisasi satu slot ──
+  const finalisasiSlot = useMutation({
+    mutationFn: async ({ slotId, status, pemenangId }: { slotId: string; status: string; pemenangId?: string }) => {
+      const existing = (statusList as StatusRow[] | undefined)?.find(s => s.bagian === slotId);
       if (existing) {
-        await supabase.from("pilihan_bagian").delete().eq("id", existing.id);
+        await supabase.from("status_bagian")
+          .update({ status, pemenang_id: pemenangId ?? null, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
       } else {
-        const { error } = await supabase.from("pilihan_bagian").insert({
-          hewan_id: hewanId!, shohibul_id: shohibulId, bagian,
-        });
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pilihan-bagian", hewanId] }),
-    onError: (e: any) => toast.error(e.message),
-  });
-
-  // ── Mutasi: finalisasi status bagian ──
-  const finalisasiStatus = useMutation({
-    mutationFn: async ({ bagian, status, pemenangId }: { bagian: string; status: StatusBagian; pemenangId?: string }) => {
-      const existing = (statusList as StatusRow[] | undefined)?.find(s => s.bagian === bagian);
-      if (existing) {
-        await supabase.from("status_bagian").update({ status, pemenang_id: pemenangId ?? null, updated_at: new Date().toISOString() }).eq("id", existing.id);
-      } else {
-        await supabase.from("status_bagian").insert({ hewan_id: hewanId!, bagian, status, pemenang_id: pemenangId ?? null });
+        await supabase.from("status_bagian")
+          .insert({ hewan_id: hewanId!, bagian: slotId, status, pemenang_id: pemenangId ?? null });
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["status-bagian", hewanId] }),
     onError: (e: any) => toast.error(e.message),
   });
 
-  // ── Aksi: shohibul mengalah ──
-  // FIX: fetch data fresh dari DB setelah delete agar tidak pakai pilihanList
-  // yang masih stale dari closure — ini penyebab hanya 1 orang yang terselect.
-  const handleMengalah = async (bagian: string, shohibulId: string) => {
-    // Hapus pilihan shohibul ini
-    const existing = pilihanList?.find(p => p.shohibul_id === shohibulId && p.bagian === bagian);
-    if (existing) {
-      await supabase.from("pilihan_bagian").delete().eq("id", existing.id);
+  // ── Aksi: tetapkan kategori aman (peminat ≤ kuota) langsung ──
+  // Setiap shohibul yang request dapat satu slot
+  const handleTetapkanAman = async (kategori: typeof KATEGORI_BAGIAN[0]) => {
+    const requests = getRequestKategori(kategori.id);
+    for (let i = 0; i < requests.length && i < kategori.slots.length; i++) {
+      await finalisasiSlot.mutateAsync({
+        slotId: kategori.slots[i],
+        status: "selesai",
+        pemenangId: requests[i].shohibul_qurban_id,
+      });
     }
+    toast.success(`✅ ${kategori.label} ditetapkan untuk ${requests.length} shohibul.`);
+  };
 
-    // FIX: Ambil data FRESH dari DB, jangan pakai pilihanList dari closure (stale)
-    const { data: freshPilihan } = await supabase
-      .from("pilihan_bagian")
-      .select("id, shohibul_id, bagian")
+  // ── Aksi: shohibul mengalah (hapus request-nya) ──
+  const handleMengalah = async (kategoriId: string, shohibulId: string, requestId: string) => {
+    await supabase.from("request_bagian").delete().eq("id", requestId);
+
+    // Ambil fresh data setelah delete
+    const { data: freshRequests } = await supabase
+      .from("request_bagian")
+      .select("id, shohibul_qurban_id, bagian, catatan, shohibul_qurban(nama)")
       .eq("hewan_id", hewanId!)
-      .eq("bagian", bagian);
+      .eq("bagian", kategoriId);
 
-    const sisa = (freshPilihan ?? []).filter(p => p.shohibul_id !== shohibulId);
+    await qc.invalidateQueries({ queryKey: ["request-bagian-undian", hewanId] });
 
-    // Invalidate setelah fetch selesai
-    await qc.invalidateQueries({ queryKey: ["pilihan-bagian", hewanId] });
+    const sisa = (freshRequests ?? []) as RequestRow[];
+    const kategori = KATEGORI_BAGIAN.find(k => k.id === kategoriId)!;
 
-    if (sisa.length === 1) {
-      await finalisasiStatus.mutateAsync({ bagian, status: "selesai", pemenangId: sisa[0].shohibul_id });
-      toast.success("Musyawarah selesai! Bagian langsung ditetapkan.");
-    } else if (sisa.length === 0) {
-      toast.success(`${getShohibul(shohibulId)?.nama} mengalah. Tidak ada peminat tersisa.`);
+    if (sisa.length <= kategori.slots.length && sisa.length > 0) {
+      // Sudah tidak sengketa lagi — tetapkan langsung
+      for (let i = 0; i < sisa.length && i < kategori.slots.length; i++) {
+        await finalisasiSlot.mutateAsync({
+          slotId: kategori.slots[i],
+          status: "selesai",
+          pemenangId: sisa[i].shohibul_qurban_id,
+        });
+      }
+      toast.success(`Musyawarah selesai! ${kategori.label} langsung ditetapkan.`);
     } else {
       toast.success(`${getShohibul(shohibulId)?.nama} mengalah.`);
     }
   };
 
-  // ── Aksi: lakukan undian ──
-  const handleUndian = async (bagian: string) => {
-    const peserta = getPilihan(bagian);
-    if (peserta.length < 2) return;
+  // ── Aksi: lakukan undian (jika masih sengketa setelah musyawarah) ──
+  // Undian memilih siapa yang TIDAK dapat (dikeluarkan) sampai peminat = kuota
+  const handleUndian = async (kategori: typeof KATEGORI_BAGIAN[0]) => {
+    const requests = getRequestKategori(kategori.id);
+    const kuota = kategori.slots.length;
+    if (requests.length <= kuota) return;
 
-    // Tandai mode undian dulu
-    await finalisasiStatus.mutateAsync({ bagian, status: "undian" });
-
-    // Animasi nama berputar
-    setAnimating(bagian);
-    const names = peserta.map(p => getShohibul(p.shohibul_id)?.nama ?? "?");
+    setAnimating(kategori.id);
+    const names = requests.map(r => r.shohibul_qurban?.nama ?? getShohibul(r.shohibul_qurban_id)?.nama ?? "?");
     let count = 0;
     const interval = setInterval(() => {
       setAnimName(names[count % names.length]);
@@ -284,22 +309,46 @@ const UndianBagian = () => {
     clearInterval(interval);
     setAnimating(null);
 
-    // Seed = bagian + waktu + semua peserta (transparan & verifiable)
-    const seed = `${bagian}-${Date.now()}-${peserta.map(p => p.shohibul_id).sort().join(",")}`;
-    const shuffled = seededShuffle(peserta, seed);
-    const pemenang = shuffled[0];
+    // Seed transparan & verifiable
+    const seed = `${kategori.id}-${Date.now()}-${requests.map(r => r.shohibul_qurban_id).sort().join(",")}`;
+    const shuffled = seededShuffle(requests, seed);
+    // Pemenang = kuota pertama dari hasil shuffle
+    const pemenang = shuffled.slice(0, kuota);
 
-    // Simpan log undian
+    // Simpan log undian (satu log per kategori)
     await supabase.from("log_undian").insert({
       hewan_id: hewanId!,
-      bagian,
-      peserta: peserta.map(p => p.shohibul_id),
-      pemenang_id: pemenang.shohibul_id,
+      bagian: kategori.id,
+      peserta: requests.map(r => r.shohibul_qurban_id),
+      pemenang_id: pemenang[0].shohibul_qurban_id, // pemenang utama (slot 1)
       seed,
     });
 
-    await finalisasiStatus.mutateAsync({ bagian, status: "selesai", pemenangId: pemenang.shohibul_id });
-    toast.success(`🎉 ${getShohibul(pemenang.shohibul_id)?.nama} mendapat ${BAGIAN_KOLEKTIF.find(b => b.id === bagian)?.label}!`);
+    // Tetapkan setiap pemenang ke slotnya
+    for (let i = 0; i < pemenang.length; i++) {
+      await finalisasiSlot.mutateAsync({
+        slotId: kategori.slots[i],
+        status: "selesai",
+        pemenangId: pemenang[i].shohibul_qurban_id,
+      });
+    }
+
+    const namaPemenang = pemenang.map(p => p.shohibul_qurban?.nama ?? getShohibul(p.shohibul_qurban_id)?.nama).join(", ");
+    toast.success(`🎉 ${kategori.label} → ${namaPemenang}`);
+  };
+
+  // ── Reset kategori ──
+  const handleReset = async (kategori: typeof KATEGORI_BAGIAN[0]) => {
+    for (const slotId of kategori.slots) {
+      const existing = (statusList as StatusRow[] | undefined)?.find(s => s.bagian === slotId);
+      if (existing) {
+        await supabase.from("status_bagian")
+          .update({ status: "kosong", pemenang_id: null, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+      }
+    }
+    await qc.invalidateQueries({ queryKey: ["status-bagian", hewanId] });
+    toast.success("Reset berhasil.");
   };
 
   // ── Kirim hasil ke semua WA ──
@@ -308,11 +357,17 @@ const UndianBagian = () => {
     const selesaiList = (statusList as StatusRow[]).filter(s => s.status === "selesai" && s.pemenang_id);
     if (selesaiList.length === 0) { toast.error("Belum ada bagian yang selesai."); return; }
 
-    shohibulList.forEach(sh => {
+    (shohibulList as ShohibulRow[]).forEach(sh => {
       if (!sh.no_wa) return;
       const dapatBagian = selesaiList
         .filter(s => s.pemenang_id === sh.id)
-        .map(s => BAGIAN_KOLEKTIF.find(b => b.id === s.bagian)?.label ?? s.bagian)
+        .map(s => {
+          const kategori = KATEGORI_BAGIAN.find(k => k.slots.includes(s.bagian));
+          const slotLabel = BAGIAN_KOLEKTIF.find(b => b.id === s.bagian)?.label ?? s.bagian;
+          // Jika kategori punya banyak slot, tampilkan label slot (misal "Tulang Kaki 1")
+          // Jika single slot, tampilkan label kategori saja
+          return kategori && kategori.slots.length > 1 ? slotLabel : (kategori?.label ?? slotLabel);
+        })
         .join(", ");
 
       const msg = dapatBagian
@@ -327,10 +382,12 @@ const UndianBagian = () => {
   // ── UI ────────────────────────────────────────────────────────────────────
   if (!hewan) return <p className="text-muted-foreground p-8">Memuat data...</p>;
 
-  const totalShohibul = shohibulList?.length ?? 0;
-  const sengketaCount = BAGIAN_KOLEKTIF.filter(b => computeStatus(b.id) === "sengketa").length;
-  const selesaiCount  = BAGIAN_KOLEKTIF.filter(b => computeStatus(b.id) === "selesai").length;
-  const kosongCount   = BAGIAN_KOLEKTIF.filter(b => computeStatus(b.id) === "kosong").length;
+  const totalShohibul = (shohibulList as ShohibulRow[] | undefined)?.length ?? 0;
+
+  // Hitung summary dari KATEGORI_BAGIAN
+  const selesaiCount  = KATEGORI_BAGIAN.filter(k => computeStatusKategori(k) === "selesai").length;
+  const sengketaCount = KATEGORI_BAGIAN.filter(k => computeStatusKategori(k) === "sengketa").length;
+  const kosongCount   = KATEGORI_BAGIAN.filter(k => computeStatusKategori(k) === "kosong").length;
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-10">
@@ -341,11 +398,11 @@ const UndianBagian = () => {
         </Button>
         <h1 className="page-title">🎲 Pembagian Bagian Resmi — Sapi {hewan.nomor_urut}</h1>
         <p className="page-subtitle">
-          Eksekusi pembagian & undian resmi · Kolektif · {totalShohibul}/7 shohibul terdaftar
+          Berdasarkan survei awal shohibul · Kolektif · {totalShohibul}/7 shohibul terdaftar
         </p>
         <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300">
           <span>💡</span>
-          <span>Survei minat awal shohibul bisa dilihat di halaman <strong>Detail Hewan</strong> tab Request Bagian.</span>
+          <span>Data diambil dari survei minat shohibul. Jika peminat melebihi kuota, lakukan musyawarah atau undian.</span>
         </div>
       </div>
 
@@ -365,10 +422,8 @@ const UndianBagian = () => {
         </Card>
         <Card className="border-gray-200 bg-gray-50">
           <CardContent className="p-3">
-            <p className="text-2xl font-bold text-gray-700">
-              {kosongCount}
-            </p>
-            <p className="text-gray-500">Kosong</p>
+            <p className="text-2xl font-bold text-gray-700">{kosongCount}</p>
+            <p className="text-gray-500">Belum ada minat</p>
           </CardContent>
         </Card>
       </div>
@@ -381,278 +436,167 @@ const UndianBagian = () => {
         </CardContent>
       </Card>
 
-      {/* Daftar bagian */}
+      {/* Daftar kategori bagian */}
       <div className="space-y-3">
         <div className="flex flex-col gap-0.5 mb-1">
           <h2 className="font-semibold text-base">Bagian Khusus — Penetapan Resmi</h2>
-          <p className="text-xs text-muted-foreground">Pilihkan bagian untuk setiap shohibul. Jika lebih dari 1 orang berminat, gunakan musyawarah atau undian.</p>
+          <p className="text-xs text-muted-foreground">
+            Jika peminat ≤ kuota → langsung tetapkan. Jika peminat lebih dari kuota → musyawarah atau undian.
+          </p>
         </div>
+
         {KATEGORI_BAGIAN.map(kategori => {
-          // Slot-slot aktual untuk kategori ini (dari BAGIAN_KOLEKTIF)
-          const slots = kategori.slots
-            .map(slotId => BAGIAN_KOLEKTIF.find(b => b.id === slotId))
-            .filter(Boolean) as typeof BAGIAN_KOLEKTIF;
+          const requests   = getRequestKategori(kategori.id);
+          const status     = computeStatusKategori(kategori);
+          const kuota      = kategori.slots.length;
+          const isAnim     = animating === kategori.id;
 
-          // Untuk kategori single-slot (1 slot), render seperti semula
-          if (slots.length === 1) {
-            const bagian = slots[0];
-            const peminat = getPilihan(bagian.id);
-            const status  = computeStatus(bagian.id);
-            const stRow   = getStatus(bagian.id);
-            const isAnim  = animating === bagian.id;
+          // Slot-slot yang sudah selesai
+          const selesaiSlots = kategori.slots
+            .map(slotId => ({ slotId, st: getStatusSlot(slotId) }))
+            .filter(({ st }) => st?.status === "selesai");
 
-            return (
-              <Card key={bagian.id} className={`transition-all ${status === "sengketa" ? "border-yellow-300" : status === "selesai" ? "border-green-300" : ""}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm">{kategori.icon} {kategori.label}</span>
-                    </div>
-                    <Badge className={statusColor[status]}>{statusLabel[status]}</Badge>
-                  </div>
-
-                  {isAnim && (
-                    <div className="text-center py-4 bg-blue-50 rounded-lg mb-3">
-                      <p className="text-xs text-blue-500 mb-1">🎲 Mengundi...</p>
-                      <p className="text-xl font-bold text-blue-700 animate-pulse">{animName}</p>
-                    </div>
-                  )}
-
-                  {status === "selesai" && stRow?.pemenang_id && (
-                    <div className="flex items-center gap-2 bg-green-50 rounded-lg p-3 mb-3">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-700">
-                        {getShohibul(stRow.pemenang_id)?.nama}
-                      </span>
-                    </div>
-                  )}
-
-                  {status !== "selesai" && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Pilih shohibul yang menginginkan:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {(shohibulList ?? []).map(sh => {
-                          const sudahPilih = peminat.some(p => p.shohibul_id === sh.id);
-                          return (
-                            <button
-                              key={sh.id}
-                              onClick={() => togglePilihan.mutate({ shohibulId: sh.id, bagian: bagian.id })}
-                              className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                                sudahPilih
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "bg-background border-border hover:border-primary/50"
-                              }`}
-                            >
-                              {sh.nama}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {status === "sengketa" && !isAnim && (
-                        <div className="mt-3 p-3 bg-yellow-50 rounded-lg space-y-2">
-                          <div className="flex items-center gap-2 text-yellow-700 text-xs font-medium">
-                            <AlertTriangle className="h-4 w-4" />
-                            {peminat.length} orang menginginkan bagian ini — musyawarah dulu:
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {peminat.map(p => (
-                              <Button
-                                key={p.shohibul_id}
-                                size="sm"
-                                variant="outline"
-                                className="text-xs h-7 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
-                                onClick={() => handleMengalah(bagian.id, p.shohibul_id)}
-                              >
-                                {getShohibul(p.shohibul_id)?.nama} mengalah
-                              </Button>
-                            ))}
-                          </div>
-                          <div className="flex items-center gap-2 pt-1">
-                            <div className="flex-1 h-px bg-yellow-200" />
-                            <span className="text-xs text-yellow-600">jika tidak ada yang mengalah</span>
-                            <div className="flex-1 h-px bg-yellow-200" />
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
-                            onClick={() => handleUndian(bagian.id)}
-                            disabled={!!animating}
-                          >
-                            <Shuffle className="mr-2 h-3 w-3" /> Lakukan Undian
-                          </Button>
-                        </div>
-                      )}
-
-                      {status === "aman" && peminat.length === 1 && (
-                        <div className="mt-2">
-                          <Button
-                            size="sm"
-                            className="text-xs bg-green-600 hover:bg-green-700"
-                            onClick={() => finalisasiStatus.mutate({ bagian: bagian.id, status: "selesai", pemenangId: peminat[0].shohibul_id })}
-                          >
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            Tetapkan {getShohibul(peminat[0].shohibul_id)?.nama}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {status === "selesai" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-xs text-muted-foreground mt-1"
-                      onClick={() => finalisasiStatus.mutate({ bagian: bagian.id, status: "kosong" })}
-                    >
-                      Batalkan
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          }
-
-          // Untuk kategori multi-slot (contoh: Tulang Kaki 1-4), render satu card
-          // dengan sub-baris per slot
-          const allSlotSelesai = slots.every(s => computeStatus(s.id) === "selesai");
-          const anySlotSengketa = slots.some(s => computeStatus(s.id) === "sengketa");
-          const cardBorder = anySlotSengketa
+          const cardBorder = status === "sengketa"
             ? "border-yellow-300"
-            : allSlotSelesai
+            : status === "selesai"
             ? "border-green-300"
             : "";
 
           return (
             <Card key={kategori.id} className={`transition-all ${cardBorder}`}>
               <CardContent className="p-4">
-                {/* Header kategori */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="font-semibold text-sm">{kategori.icon} {kategori.label}</span>
-                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                    {slots.length} slot
-                  </span>
+                {/* Header: nama + kuota + status */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{kategori.icon} {kategori.label}</span>
+                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                      kuota {kuota}
+                    </span>
+                  </div>
+                  <Badge className={statusColor[status]}>{statusLabel[status]}</Badge>
                 </div>
 
-                {/* Sub-baris per slot */}
-                <div className="space-y-3">
-                  {slots.map((bagian, idx) => {
-                    const peminat = getPilihan(bagian.id);
-                    const status  = computeStatus(bagian.id);
-                    const stRow   = getStatus(bagian.id);
-                    const isAnim  = animating === bagian.id;
+                {/* Animasi undian */}
+                {isAnim && (
+                  <div className="text-center py-4 bg-blue-50 rounded-lg mb-3">
+                    <p className="text-xs text-blue-500 mb-1">🎲 Mengundi...</p>
+                    <p className="text-xl font-bold text-blue-700 animate-pulse">{animName}</p>
+                  </div>
+                )}
 
-                    return (
-                      <div key={bagian.id} className={`rounded-lg border p-3 ${status === "sengketa" ? "border-yellow-200 bg-yellow-50/40" : status === "selesai" ? "border-green-200 bg-green-50/40" : "border-border bg-muted/20"}`}>
-                        {/* Slot header */}
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-muted-foreground">Slot {idx + 1}</span>
-                          <Badge className={statusColor[status]}>{statusLabel[status]}</Badge>
+                {/* Hasil selesai — tampilkan pemenang per slot */}
+                {status === "selesai" && selesaiSlots.length > 0 && (
+                  <div className="space-y-1.5 mb-3">
+                    {selesaiSlots.map(({ slotId, st }) => {
+                      const slotLabel = BAGIAN_KOLEKTIF.find(b => b.id === slotId)?.label ?? slotId;
+                      const nama = getShohibul(st!.pemenang_id!)?.nama
+                        ?? requests.find(r => r.shohibul_qurban_id === st!.pemenang_id)?.shohibul_qurban?.nama
+                        ?? "—";
+                      return (
+                        <div key={slotId} className="flex items-center gap-2 bg-green-50 rounded-lg px-3 py-2">
+                          <CheckCircle className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                          <span className="text-xs text-green-600 w-24 shrink-0">
+                            {kuota > 1 ? slotLabel : kategori.label}
+                          </span>
+                          <span className="text-sm font-medium text-green-700">{nama}</span>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-                        {/* Animasi undian */}
-                        {isAnim && (
-                          <div className="text-center py-3 bg-blue-50 rounded-lg mb-2">
-                            <p className="text-xs text-blue-500 mb-1">🎲 Mengundi...</p>
-                            <p className="text-lg font-bold text-blue-700 animate-pulse">{animName}</p>
-                          </div>
-                        )}
-
-                        {/* Pemenang */}
-                        {status === "selesai" && stRow?.pemenang_id && (
-                          <div className="flex items-center gap-2 bg-green-50 rounded p-2 mb-2">
-                            <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-                            <span className="text-xs font-medium text-green-700">
-                              {getShohibul(stRow.pemenang_id)?.nama}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Pilihan shohibul */}
-                        {status !== "selesai" && (
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap gap-1.5">
-                              {(shohibulList ?? []).map(sh => {
-                                const sudahPilih = peminat.some(p => p.shohibul_id === sh.id);
-                                return (
-                                  <button
-                                    key={sh.id}
-                                    onClick={() => togglePilihan.mutate({ shohibulId: sh.id, bagian: bagian.id })}
-                                    className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
-                                      sudahPilih
-                                        ? "bg-primary text-primary-foreground border-primary"
-                                        : "bg-background border-border hover:border-primary/50"
-                                    }`}
-                                  >
-                                    {sh.nama}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {/* Sengketa */}
-                            {status === "sengketa" && !isAnim && (
-                              <div className="mt-2 p-2 bg-yellow-50 rounded space-y-2">
-                                <div className="flex items-center gap-1.5 text-yellow-700 text-xs font-medium">
-                                  <AlertTriangle className="h-3.5 w-3.5" />
-                                  {peminat.length} orang berminat — musyawarah dulu:
-                                </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {peminat.map(p => (
-                                    <Button
-                                      key={p.shohibul_id}
-                                      size="sm"
-                                      variant="outline"
-                                      className="text-xs h-6 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
-                                      onClick={() => handleMengalah(bagian.id, p.shohibul_id)}
-                                    >
-                                      {getShohibul(p.shohibul_id)?.nama} mengalah
-                                    </Button>
-                                  ))}
-                                </div>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="w-full text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
-                                  onClick={() => handleUndian(bagian.id)}
-                                  disabled={!!animating}
-                                >
-                                  <Shuffle className="mr-1.5 h-3 w-3" /> Lakukan Undian
-                                </Button>
-                              </div>
-                            )}
-
-                            {/* Aman */}
-                            {status === "aman" && peminat.length === 1 && (
-                              <Button
-                                size="sm"
-                                className="text-xs bg-green-600 hover:bg-green-700 mt-1"
-                                onClick={() => finalisasiStatus.mutate({ bagian: bagian.id, status: "selesai", pemenangId: peminat[0].shohibul_id })}
-                              >
-                                <CheckCircle className="mr-1 h-3 w-3" />
-                                Tetapkan {getShohibul(peminat[0].shohibul_id)?.nama}
-                              </Button>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Reset */}
-                        {status === "selesai" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-xs text-muted-foreground mt-1 h-6"
-                            onClick={() => finalisasiStatus.mutate({ bagian: bagian.id, status: "kosong" })}
+                {/* Daftar peminat dari survei */}
+                {requests.length > 0 && status !== "selesai" && (
+                  <div className="mb-3">
+                    <p className="text-xs text-muted-foreground mb-1.5">
+                      Peminat ({requests.length}/{kuota} kuota):
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {requests.map(r => {
+                        const nama = r.shohibul_qurban?.nama ?? getShohibul(r.shohibul_qurban_id)?.nama ?? "?";
+                        return (
+                          <span
+                            key={r.id}
+                            className="text-xs px-2.5 py-1 rounded-full border bg-primary/10 border-primary/30 text-primary"
                           >
-                            Batalkan
+                            {nama}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tidak ada peminat */}
+                {requests.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic mb-2">Tidak ada shohibul yang merequest bagian ini.</p>
+                )}
+
+                {/* Aman: peminat ≤ kuota → tombol tetapkan langsung */}
+                {status === "aman" && !isAnim && (
+                  <Button
+                    size="sm"
+                    className="text-xs bg-green-600 hover:bg-green-700"
+                    onClick={() => handleTetapkanAman(kategori)}
+                  >
+                    <CheckCircle className="mr-1 h-3 w-3" />
+                    Tetapkan {requests.length === 1
+                      ? requests[0].shohibul_qurban?.nama ?? getShohibul(requests[0].shohibul_qurban_id)?.nama
+                      : `${requests.length} shohibul`}
+                  </Button>
+                )}
+
+                {/* Sengketa: peminat > kuota → musyawarah atau undian */}
+                {status === "sengketa" && !isAnim && (
+                  <div className="mt-2 p-3 bg-yellow-50 rounded-lg space-y-2">
+                    <div className="flex items-center gap-2 text-yellow-700 text-xs font-medium">
+                      <AlertTriangle className="h-4 w-4" />
+                      {requests.length} peminat, kuota hanya {kuota} — musyawarah dulu:
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {requests.map(r => {
+                        const nama = r.shohibul_qurban?.nama ?? getShohibul(r.shohibul_qurban_id)?.nama ?? "?";
+                        return (
+                          <Button
+                            key={r.id}
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                            onClick={() => handleMengalah(kategori.id, r.shohibul_qurban_id, r.id)}
+                          >
+                            {nama} mengalah
                           </Button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <div className="flex-1 h-px bg-yellow-200" />
+                      <span className="text-xs text-yellow-600">jika tidak ada yang mengalah</span>
+                      <div className="flex-1 h-px bg-yellow-200" />
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
+                      onClick={() => handleUndian(kategori)}
+                      disabled={!!animating}
+                    >
+                      <Shuffle className="mr-2 h-3 w-3" /> Lakukan Undian
+                    </Button>
+                  </div>
+                )}
+
+                {/* Reset jika sudah selesai */}
+                {status === "selesai" && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs text-muted-foreground mt-1"
+                    onClick={() => handleReset(kategori)}
+                  >
+                    Batalkan
+                  </Button>
+                )}
               </CardContent>
             </Card>
           );
@@ -665,10 +609,10 @@ const UndianBagian = () => {
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-2 text-green-700">
               <Users className="h-4 w-4" />
-              <span className="font-semibold text-sm">{selesaiCount} bagian sudah ditetapkan</span>
+              <span className="font-semibold text-sm">{selesaiCount} kategori bagian sudah ditetapkan</span>
             </div>
 
-            {/* Link hasil publik untuk shohibul */}
+            {/* Link hasil publik */}
             <div className="rounded-lg border border-green-300 bg-white p-3 space-y-2">
               <p className="text-xs font-medium text-green-800">🔗 Link Hasil untuk Shohibul (tanpa login):</p>
               <div className="flex items-center gap-2">
@@ -713,10 +657,14 @@ const UndianBagian = () => {
         <Card>
           <CardHeader><CardTitle className="text-base">📋 Ringkasan Hasil</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {(shohibulList ?? []).map(sh => {
-              const bagianDapat = (statusList as StatusRow[] ?? [])
-                .filter(s => s.status === "selesai" && s.pemenang_id === sh.id)
-                .map(s => BAGIAN_KOLEKTIF.find(b => b.id === s.bagian)?.label ?? s.bagian);
+            {(shohibulList as ShohibulRow[] ?? []).map(sh => {
+              const selesaiMilik = (statusList as StatusRow[] ?? [])
+                .filter(s => s.status === "selesai" && s.pemenang_id === sh.id);
+              const bagianDapat = selesaiMilik.map(s => {
+                const kategori = KATEGORI_BAGIAN.find(k => k.slots.includes(s.bagian));
+                const slotLabel = BAGIAN_KOLEKTIF.find(b => b.id === s.bagian)?.label ?? s.bagian;
+                return kategori && kategori.slots.length > 1 ? slotLabel : (kategori?.label ?? slotLabel);
+              });
               return (
                 <div key={sh.id} className="flex justify-between items-start py-2 border-b last:border-0">
                   <span className="font-medium">{sh.nama}</span>
