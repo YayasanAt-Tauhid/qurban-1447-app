@@ -117,6 +117,23 @@ const MustahiqPage = () => {
     },
   });
 
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, currentStatus }: { id: string; currentStatus: string }) => {
+      const newStatus = currentStatus === "sudah_ambil" ? "belum_ambil" : "sudah_ambil";
+      const { error } = await supabase
+        .from("mustahiq")
+        .update({ status_kupon: newStatus as any })
+        .eq("id", id);
+      if (error) throw error;
+      return newStatus;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ["mustahiq-list"], refetchType: "active" });
+      toast.success(newStatus === "sudah_ambil" ? "Ditandai sudah ambil" : "Status dikembalikan ke belum ambil");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
   const stoppingRef = useRef(false);
 
   const stopScanner = useCallback(async () => {
