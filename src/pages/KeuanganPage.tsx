@@ -500,6 +500,69 @@ const KeuanganPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Import Kas Dialog */}
+      <ImportExcelDialog
+        open={showKasImport}
+        onOpenChange={setShowKasImport}
+        title="Import Transaksi Kas dari Excel"
+        columns={[
+          { key: "tanggal", label: "Tanggal", required: true },
+          { key: "jenis", label: "Jenis", required: true },
+          { key: "jumlah", label: "Jumlah", required: true },
+          { key: "metode", label: "Metode" },
+          { key: "kategori", label: "Kategori" },
+          { key: "keterangan", label: "Keterangan" },
+        ]}
+        templateData={[
+          { tanggal: "2025-06-07", jenis: "masuk", jumlah: 500000, metode: "tunai", kategori: "iuran shohibul", keterangan: "Iuran Ahmad" },
+          { tanggal: "2025-06-08", jenis: "keluar", jumlah: 200000, metode: "bank", kategori: "operasional", keterangan: "Beli tali" },
+        ]}
+        templateFileName="template-kas.xlsx"
+        validateRow={(r) => {
+          const jenis = String(r.jenis ?? "").toLowerCase().trim();
+          if (jenis !== "masuk" && jenis !== "keluar") return false;
+          const jumlah = Number(r.jumlah);
+          if (!jumlah || jumlah <= 0) return false;
+          return !!r.tanggal;
+        }}
+        summaryRender={(rows) => {
+          const masuk = rows.filter(r => String(r.jenis).toLowerCase().trim() === "masuk").reduce((s, r) => s + Number(r.jumlah), 0);
+          const keluar = rows.filter(r => String(r.jenis).toLowerCase().trim() === "keluar").reduce((s, r) => s + Number(r.jumlah), 0);
+          return (
+            <div className="flex gap-4 text-sm">
+              <span className="text-success font-medium">Masuk: {formatRupiah(masuk)}</span>
+              <span className="text-destructive font-medium">Keluar: {formatRupiah(keluar)}</span>
+            </div>
+          );
+        }}
+        onImport={async (rows) => {
+          const inserts = rows.map((r) => {
+            let tanggal = String(r.tanggal).trim();
+            // Try DD/MM/YYYY format
+            const ddmmMatch = tanggal.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+            if (ddmmMatch) tanggal = `${ddmmMatch[3]}-${ddmmMatch[2].padStart(2, "0")}-${ddmmMatch[1].padStart(2, "0")}`;
+            
+            const metode = ["tunai", "bank"].includes(String(r.metode ?? "").toLowerCase().trim())
+              ? String(r.metode).toLowerCase().trim() as "tunai" | "bank"
+              : "tunai" as const;
+
+            return {
+              tanggal,
+              jenis: String(r.jenis).toLowerCase().trim() as "masuk" | "keluar",
+              jumlah: Math.round(Number(r.jumlah)),
+              metode,
+              kategori: r.kategori ? String(r.kategori).trim() : null,
+              keterangan: r.keterangan ? String(r.keterangan).trim() : null,
+              dibuat_oleh: panitiaId,
+            };
+          });
+          const { error } = await supabase.from("kas").insert(inserts);
+          if (error) throw error;
+          queryClient.invalidateQueries({ queryKey: ["kas-list"] });
+          queryClient.invalidateQueries({ queryKey: ["iuran-payments"] });
+          toast.success(`${inserts.length} transaksi berhasil diimport`);
+        }}
+      />
     </div>
   );
 };
