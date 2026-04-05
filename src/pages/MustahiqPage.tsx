@@ -58,6 +58,7 @@ const MustahiqPage = () => {
         nama: formNama,
         kategori: formKategori,
         keterangan: formKeterangan || null,
+        nama_penyalur: formPenyalur || null,
         nomor_kupon: nomor,
         qr_data: nomor,
       });
