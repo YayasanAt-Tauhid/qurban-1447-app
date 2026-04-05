@@ -23,6 +23,7 @@ import DistribusiPage from "./pages/DistribusiPage";
 import PanitiaPage from "./pages/PanitiaPage";
 import KeuanganPage from "./pages/KeuanganPage";
 import UndianBagian from "./pages/UndianBagian";
+import UndianHasil from "./pages/UndianHasil"; // ← BARU: halaman publik hasil undian
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,9 +44,14 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* ── Publik (tanpa login) ── */}
             <Route path="/login" element={<Login />} />
             <Route path="/akad/:shohibulId" element={<AkadPage />} />
             <Route path="/publik/laporan" element={<LaporanPublik />} />
+            {/* Hasil undian — bisa dibuka shohibul via link WA, tanpa login */}
+            <Route path="/publik/undian/:hewanId" element={<UndianHasil />} />
+
+            {/* ── Protected ── */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
             <Route path="/hewan" element={<ProtectedLayout><HewanList /></ProtectedLayout>} />

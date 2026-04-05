@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Shuffle, CheckCircle, AlertTriangle, Users, Send } from "lucide-react";
+import { ArrowLeft, Shuffle, CheckCircle, AlertTriangle, Users, Send, Copy, ExternalLink } from "lucide-react";
 
 // ─── Definisi bagian khusus sapi kolektif (sesuai form fisik) ───────────────
 export const BAGIAN_KOLEKTIF: { id: string; label: string; kuota: number; bisa_multi: boolean }[] = [
@@ -474,6 +474,37 @@ const UndianBagian = () => {
               <Users className="h-4 w-4" />
               <span className="font-semibold text-sm">{selesaiCount} bagian sudah ditetapkan</span>
             </div>
+
+            {/* Link hasil publik untuk shohibul */}
+            <div className="rounded-lg border border-green-300 bg-white p-3 space-y-2">
+              <p className="text-xs font-medium text-green-800">🔗 Link Hasil untuk Shohibul (tanpa login):</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-green-50 border border-green-200 rounded px-2 py-1.5 truncate text-green-900 select-all">
+                  {`${window.location.origin}/publik/undian/${hewanId}`}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 border-green-300 text-green-700 hover:bg-green-50 h-8 px-2"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/publik/undian/${hewanId}`);
+                    toast.success("Link disalin!");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 border-green-300 text-green-700 hover:bg-green-50 h-8 px-2"
+                  onClick={() => window.open(`/publik/undian/${hewanId}`, "_blank")}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Bagikan link ini ke shohibul via WA agar mereka bisa lihat hasil secara transparan.</p>
+            </div>
+
             <Button className="w-full bg-green-600 hover:bg-green-700" onClick={kirimHasil}>
               <Send className="mr-2 h-4 w-4" /> Kirim Hasil ke Semua WhatsApp
             </Button>
