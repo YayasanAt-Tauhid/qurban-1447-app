@@ -456,6 +456,7 @@ export type Database = {
           nama_wakil_akad: string | null
           no_wa: string | null
           panitia_pendaftar: string | null
+          catatan_pendaftaran: string | null
           status_checklist_panitia:
             | Database["public"]["Enums"]["status_checklist"]
             | null
@@ -480,6 +481,7 @@ export type Database = {
           nama_wakil_akad?: string | null
           no_wa?: string | null
           panitia_pendaftar?: string | null
+          catatan_pendaftaran?: string | null
           status_checklist_panitia?:
             | Database["public"]["Enums"]["status_checklist"]
             | null
@@ -504,6 +506,7 @@ export type Database = {
           nama_wakil_akad?: string | null
           no_wa?: string | null
           panitia_pendaftar?: string | null
+          catatan_pendaftaran?: string | null
           status_checklist_panitia?:
             | Database["public"]["Enums"]["status_checklist"]
             | null
