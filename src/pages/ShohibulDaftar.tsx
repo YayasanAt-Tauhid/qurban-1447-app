@@ -27,8 +27,44 @@ interface HewanOption {
   sisa_kuota: number;
 }
 
-const PaymentInfoCard = ({ nama, hewanLabel, iuran }: { nama: string; hewanLabel: string; iuran: number }) => {
+interface PaymentInfoProps {
+  nama: string;
+  hewanLabel: string;
+  iuran: number;
+  harga: number;
+  biayaOperasional: number;
+  tipeKepemilikan: string;
+  kuota: number;
+  sumberHewan: string | null;
+}
+
+const PaymentInfoCard = ({ nama, hewanLabel, iuran, harga, biayaOperasional, tipeKepemilikan, kuota, sumberHewan }: PaymentInfoProps) => {
   const [copied, setCopied] = useState(false);
+
+  const isBawaSendiri = sumberHewan === "bawa_sendiri";
+
+  // Build rincian biaya
+  let rincianLines: string[] = [];
+  if (tipeKepemilikan === "kolektif") {
+    const hargaPerOrang = Math.ceil(harga / kuota / 1000) * 1000;
+    rincianLines = [
+      `Harga hewan ÷ ${kuota} orang: ${formatRupiah(hargaPerOrang)}`,
+      `Biaya operasional: ${formatRupiah(biayaOperasional)}`,
+      `*Total iuran per orang: ${formatRupiah(iuran)}*`,
+    ];
+  } else if (isBawaSendiri) {
+    rincianLines = [
+      `Biaya operasional: ${formatRupiah(biayaOperasional)}`,
+      `_(Hewan dibawa sendiri)_`,
+      `*Total dibayar ke panitia: ${formatRupiah(iuran)}*`,
+    ];
+  } else {
+    rincianLines = [
+      `Harga hewan: ${formatRupiah(harga)}`,
+      `Biaya operasional: ${formatRupiah(biayaOperasional)}`,
+      `*Total dibayar ke panitia: ${formatRupiah(iuran)}*`,
+    ];
+  }
 
   const templateText = `Bismillaah
 
@@ -38,7 +74,9 @@ Berikut informasi pembayaran iuran qurban:
 
 👤 *Nama:* ${nama}
 🐄 *Hewan:* ${hewanLabel}
-💰 *Iuran:* ${formatRupiah(iuran)}
+
+💰 *Rincian Biaya:*
+${rincianLines.join("\n")}
 
 📌 *Opsi Pembayaran:*
 
