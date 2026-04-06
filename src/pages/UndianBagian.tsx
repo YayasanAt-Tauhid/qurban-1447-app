@@ -344,11 +344,11 @@ const UndianBagian = () => {
     // Simpan log undian (satu log per kategori)
     await supabase.from("log_undian").insert({
       hewan_id: hewanId!,
-      bagian: kategori.id,
+      bagian: kategori.id as any,
       peserta: requests.map(r => r.shohibul_qurban_id),
-      pemenang_id: pemenang[0].shohibul_qurban_id, // pemenang utama (slot 1)
+      pemenang_id: pemenang[0].shohibul_qurban_id,
       seed,
-    });
+    } as any);
 
     // Tetapkan setiap pemenang ke slotnya
     for (let i = 0; i < pemenang.length; i++) {
