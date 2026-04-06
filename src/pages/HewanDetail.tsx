@@ -78,7 +78,7 @@ const HewanDetail = () => {
               .delete()
               .eq("hewan_id", id!)
               .eq("shohibul_id", shohibulId)
-              .eq("bagian", slot);
+              .eq("bagian", slot as any);
           }
         }
       } else {
