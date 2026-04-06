@@ -105,7 +105,6 @@ const HewanDetail = () => {
               await supabase.from("pilihan_bagian").insert({
                 hewan_id: id!, shohibul_id: shohibulId, bagian: slot as any,
               } as any);
-              });
             }
           } else {
             // Kolektif: ambil slot berikutnya yang belum ada pemiliknya
