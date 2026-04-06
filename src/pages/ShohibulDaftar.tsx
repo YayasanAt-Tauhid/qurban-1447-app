@@ -201,6 +201,8 @@ const ShohibulDaftar = () => {
         jenis_hewan: h.jenis_hewan,
         tipe_kepemilikan: h.tipe_kepemilikan,
         harga: Number(h.harga),
+        biaya_operasional: Number(h.biaya_operasional),
+        sumber_hewan: h.sumber_hewan,
         iuran_per_orang: Number(h.iuran_per_orang),
         kuota: h.kuota,
         sisa_kuota: h.kuota - (countMap[h.id] || 0),
