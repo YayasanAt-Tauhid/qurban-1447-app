@@ -533,6 +533,11 @@ const ShohibulDaftar = () => {
         nama={nama}
         hewanLabel={`${selectedHewan?.nomor_urut} (${selectedHewan?.jenis_hewan})`}
         iuran={selectedHewan?.iuran_per_orang ?? 0}
+        harga={selectedHewan?.harga ?? 0}
+        biayaOperasional={selectedHewan?.biaya_operasional ?? 0}
+        tipeKepemilikan={selectedHewan?.tipe_kepemilikan ?? "kolektif"}
+        kuota={selectedHewan?.kuota ?? 7}
+        sumberHewan={selectedHewan?.sumber_hewan ?? null}
       />
 
       <div className="flex justify-between pt-2">
