@@ -33,7 +33,7 @@ const ShohibulDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shohibul_qurban")
-        .select("*, hewan_qurban(nomor_urut, jenis_hewan, tipe_kepemilikan, iuran_per_orang)")
+        .select("*, hewan_qurban(nomor_urut, jenis_hewan, tipe_kepemilikan, iuran_per_orang, harga, biaya_operasional, kuota, sumber_hewan)")
         .eq("id", id!)
         .single();
       if (error) throw error;
