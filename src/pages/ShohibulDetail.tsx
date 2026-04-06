@@ -243,7 +243,47 @@ const ShohibulDetail = () => {
           {shohibul.panitia_pendaftar && (
             <div><span className="text-muted-foreground">Panitia Pendaftar</span><p className="font-semibold">{shohibul.panitia_pendaftar}</p></div>
           )}
-          <div><span className="text-muted-foreground">Iuran</span><p className="font-semibold">{formatRupiah(Number(hewan?.iuran_per_orang ?? 0))}</p></div>
+          <div className="col-span-2 sm:col-span-3">
+            <span className="text-muted-foreground">Rincian Iuran</span>
+            {hewan && hewan.tipe_kepemilikan === "kolektif" ? (
+              <div className="mt-1 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>Harga hewan ÷ {hewan.kuota ?? 7} orang</span>
+                  <span>{formatRupiah(Math.ceil(Number(hewan.harga ?? 0) / (hewan.kuota ?? 7) / 1000) * 1000)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Biaya operasional</span>
+                  <span>{formatRupiah(Number(hewan.biaya_operasional ?? 0))}</span>
+                </div>
+                <div className="flex justify-between border-t pt-1 font-semibold">
+                  <span>Total iuran per orang</span>
+                  <span className="text-primary">{formatRupiah(Number(hewan.iuran_per_orang ?? 0))}</span>
+                </div>
+              </div>
+            ) : hewan ? (
+              <div className="mt-1 space-y-1 text-sm">
+                {hewan.sumber_hewan !== "bawa_sendiri" && Number(hewan.harga ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span>Harga hewan</span>
+                    <span>{formatRupiah(Number(hewan.harga ?? 0))}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>Biaya operasional</span>
+                  <span>{formatRupiah(Number(hewan.biaya_operasional ?? 0))}</span>
+                </div>
+                <div className="flex justify-between border-t pt-1 font-semibold">
+                  <span>Total dibayar ke panitia</span>
+                  <span className="text-primary">{formatRupiah(Number(hewan.iuran_per_orang ?? 0))}</span>
+                </div>
+                {hewan.sumber_hewan === "bawa_sendiri" && (
+                  <p className="text-xs text-muted-foreground">(operasional saja — hewan dibawa sendiri)</p>
+                )}
+              </div>
+            ) : (
+              <p className="font-semibold">{formatRupiah(0)}</p>
+            )}
+          </div>
           {(shohibul as any).catatan_pendaftaran && (
             <div className="col-span-2 sm:col-span-3">
               <span className="text-muted-foreground">Catatan Pendaftaran</span>
