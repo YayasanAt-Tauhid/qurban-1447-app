@@ -135,6 +135,8 @@ const ShohibulDetail = () => {
   const deleteMutation = useMutation({
     mutationFn: async () => {
       await supabase.from("request_bagian").delete().eq("shohibul_qurban_id", id!);
+      await supabase.from("pilihan_bagian").delete().eq("shohibul_id", id!);
+      await supabase.from("status_bagian").update({ pemenang_id: null }).eq("pemenang_id", id!);
       const { error } = await supabase.from("shohibul_qurban").delete().eq("id", id!);
       if (error) throw error;
     },

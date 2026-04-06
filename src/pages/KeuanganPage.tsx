@@ -15,13 +15,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { formatRupiah, formatTanggal, SUMBER_HEWAN_LABEL, type SumberHewan } from "@/lib/qurban-utils";
-import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard, FileUp, Banknote, Landmark } from "lucide-react";
+import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard, FileUp, Banknote, Landmark, Edit2, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import ImportExcelDialog from "@/components/ImportExcelDialog";
 import { formatRupiah as fmtR } from "@/lib/qurban-utils";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
-const KATEGORI_SUGGESTIONS = ["pembelian hewan", "operasional", "konsumsi", "perlengkapan", "iuran shohibul"];
+const KATEGORI_SUGGESTIONS = ["pembelian hewan", "operasional", "konsumsi", "perlengkapan"];
 
 const KeuanganPage = () => {
   const { isAdmin, panitiaId } = useAuth();
@@ -31,6 +32,8 @@ const KeuanganPage = () => {
   const [filterMetode, setFilterMetode] = useState("semua");
   const [searchKeterangan, setSearchKeterangan] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [iuranDialogOpen, setIuranDialogOpen] = useState(false);
   const [filterBayar, setFilterBayar] = useState("semua");
 
@@ -98,6 +101,53 @@ const KeuanganPage = () => {
     if (total <= 0) return "belum";
     if (total >= iuranPerOrang) return "lunas";
     return "dp";
+  };
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("kas").update({
+        tanggal: formTanggal,
+        jenis: formJenis,
+        metode: formMetode,
+        kategori: formKategori || null,
+        keterangan: formKeterangan || null,
+        jumlah: parseInt(formJumlah) || 0,
+      }).eq("id", editId!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kas-list"] });
+      queryClient.invalidateQueries({ queryKey: ["iuran-payments"] });
+      setEditDialogOpen(false);
+      setEditId(null);
+      resetForm();
+      toast.success("Transaksi berhasil diperbarui");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("kas").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kas-list"] });
+      queryClient.invalidateQueries({ queryKey: ["iuran-payments"] });
+      toast.success("Transaksi dihapus");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const openEditDialog = (k: any) => {
+    setEditId(k.id);
+    setFormTanggal(k.tanggal);
+    setFormJenis(k.jenis);
+    setFormMetode(k.metode ?? "tunai");
+    setFormKategori(k.kategori ?? "");
+    setFormKeterangan(k.keterangan ?? "");
+    setFormJumlah(String(k.jumlah));
+    setEditDialogOpen(true);
   };
 
   const insertMutation = useMutation({
@@ -364,11 +414,12 @@ const KeuanganPage = () => {
                     <TableHead>Kategori</TableHead>
                     <TableHead>Keterangan</TableHead>
                     <TableHead className="text-right">Jumlah</TableHead>
+                    {isAdmin() && <TableHead className="w-20">Aksi</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered?.length === 0 && (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Belum ada transaksi</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={isAdmin() ? 8 : 7} className="text-center py-8 text-muted-foreground">Belum ada transaksi</TableCell></TableRow>
                   )}
                   {filtered?.map((k, idx) => (
                     <TableRow key={k.id}>
@@ -383,6 +434,34 @@ const KeuanganPage = () => {
                       <TableCell>{k.kategori ?? "-"}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{k.keterangan ?? "-"}</TableCell>
                       <TableCell className="text-right font-semibold">{formatRupiah(Number(k.jumlah))}</TableCell>
+                      {isAdmin() && (
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditDialog(k)}>
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Hapus Transaksi?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {k.keterangan ?? k.kategori ?? "Transaksi ini"} sebesar {formatRupiah(Number(k.jumlah))} akan dihapus permanen.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteMutation.mutate(k.id)} className="bg-destructive text-destructive-foreground">Hapus</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -558,6 +637,42 @@ const KeuanganPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Edit Transaksi Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => { setEditDialogOpen(open); if (!open) { setEditId(null); resetForm(); } }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Transaksi</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Tanggal</Label><Input type="date" value={formTanggal} onChange={(e) => setFormTanggal(e.target.value)} /></div>
+            <div>
+              <Label>Jenis</Label>
+              <RadioGroup value={formJenis} onValueChange={(v) => setFormJenis(v as any)} className="flex gap-4 mt-1">
+                <div className="flex items-center gap-2"><RadioGroupItem value="masuk" id="ej-masuk" /><Label htmlFor="ej-masuk">Masuk</Label></div>
+                <div className="flex items-center gap-2"><RadioGroupItem value="keluar" id="ej-keluar" /><Label htmlFor="ej-keluar">Keluar</Label></div>
+              </RadioGroup>
+            </div>
+            <div>
+              <Label>Metode</Label>
+              <RadioGroup value={formMetode} onValueChange={(v) => setFormMetode(v as any)} className="flex gap-4 mt-1">
+                <div className="flex items-center gap-2"><RadioGroupItem value="tunai" id="em-tunai" /><Label htmlFor="em-tunai">Tunai</Label></div>
+                <div className="flex items-center gap-2"><RadioGroupItem value="bank" id="em-bank" /><Label htmlFor="em-bank">Bank</Label></div>
+              </RadioGroup>
+            </div>
+            <div>
+              <Label>Kategori</Label>
+              <Input value={formKategori} onChange={(e) => setFormKategori(e.target.value)} placeholder="Ketik kategori..." list="kategori-list-edit" />
+              <datalist id="kategori-list-edit">
+                {KATEGORI_SUGGESTIONS.map((k) => <option key={k} value={k} />)}
+              </datalist>
+            </div>
+            <div><Label>Keterangan</Label><Textarea value={formKeterangan} onChange={(e) => setFormKeterangan(e.target.value)} /></div>
+            <div><Label>Jumlah (Rp)</Label><Input type="number" value={formJumlah} onChange={(e) => setFormJumlah(e.target.value)} placeholder="0" /></div>
+            <Button className="w-full" onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending || !formJumlah}>
+              {updateMutation.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Import Kas Dialog */}
       <ImportExcelDialog
         open={showKasImport}

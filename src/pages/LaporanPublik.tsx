@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Share2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { Share2, TrendingUp, TrendingDown, Wallet, Banknote, Landmark } from "lucide-react";
 import { formatRupiah, formatTanggal } from "@/lib/qurban-utils";
 
 const LaporanPublik = () => {
@@ -21,6 +21,15 @@ const LaporanPublik = () => {
   const totalMasuk = kasList?.filter((k) => k.jenis === "masuk").reduce((a, k) => a + Number(k.jumlah), 0) ?? 0;
   const totalKeluar = kasList?.filter((k) => k.jenis === "keluar").reduce((a, k) => a + Number(k.jumlah), 0) ?? 0;
   const saldo = totalMasuk - totalKeluar;
+
+  const saldoTunai = kasList?.reduce((a, k) => {
+    if (k.metode !== "tunai") return a;
+    return k.jenis === "masuk" ? a + Number(k.jumlah) : a - Number(k.jumlah);
+  }, 0) ?? 0;
+  const saldoBank = kasList?.reduce((a, k) => {
+    if (k.metode !== "bank") return a;
+    return k.jenis === "masuk" ? a + Number(k.jumlah) : a - Number(k.jumlah);
+  }, 0) ?? 0;
 
   const shareWhatsApp = () => {
     const msg = `📊 Laporan Keuangan Qurban 1447H\nMasjid At-Tauhid Pangkalpinang\n\nPemasukan: ${formatRupiah(totalMasuk)}\nPengeluaran: ${formatRupiah(totalKeluar)}\nSaldo: ${formatRupiah(saldo)}\n\nLihat detail: ${window.location.href}`;
@@ -85,6 +94,32 @@ const LaporanPublik = () => {
               </Card>
             </div>
 
+            {/* Saldo per Metode */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-800">
+                <CardContent className="p-5 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                    <Banknote className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Saldo Tunai</p>
+                    <p className={`text-xl font-bold ${saldoTunai >= 0 ? "text-amber-600 dark:text-amber-400" : "text-destructive"}`}>{formatRupiah(saldoTunai)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 dark:border-blue-800">
+                <CardContent className="p-5 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                    <Landmark className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Saldo Bank</p>
+                    <p className={`text-xl font-bold ${saldoBank >= 0 ? "text-blue-600 dark:text-blue-400" : "text-destructive"}`}>{formatRupiah(saldoBank)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Table */}
             <Card>
               <CardContent className="p-0">
@@ -95,13 +130,14 @@ const LaporanPublik = () => {
                         <TableHead>Tanggal</TableHead>
                         <TableHead>Keterangan</TableHead>
                         <TableHead>Kategori</TableHead>
+                        <TableHead>Metode</TableHead>
                         <TableHead className="text-right">Jumlah</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {kasList?.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Belum ada transaksi</TableCell>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Belum ada transaksi</TableCell>
                         </TableRow>
                       )}
                       {kasList?.map((k) => (
@@ -109,6 +145,7 @@ const LaporanPublik = () => {
                           <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
                           <TableCell className="max-w-[250px] truncate">{k.keterangan ?? "-"}</TableCell>
                           <TableCell>{k.kategori ?? "-"}</TableCell>
+                          <TableCell className="capitalize">{k.metode ?? "-"}</TableCell>
                           <TableCell className={`text-right font-semibold ${k.jenis === "masuk" ? "text-success" : "text-destructive"}`}>
                             {k.jenis === "masuk" ? "+" : "-"}{formatRupiah(Number(k.jumlah))}
                           </TableCell>
