@@ -408,6 +408,7 @@ CREATE TABLE IF NOT EXISTS "public"."shohibul_qurban" (
     "status_checklist_panitia" "public"."status_checklist" DEFAULT 'pending'::"public"."status_checklist",
     "sumber_pendaftaran" "public"."sumber_pendaftaran" DEFAULT 'manual'::"public"."sumber_pendaftaran",
     "panitia_pendaftar" "text",
+    "catatan_pendaftaran" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 

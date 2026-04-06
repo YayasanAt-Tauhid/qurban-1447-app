@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ const ShohibulDaftar = () => {
   const [nama, setNama] = useState("");
   const [alamat, setAlamat] = useState("");
   const [noWa, setNoWa] = useState("");
+  const [catatan, setCatatan] = useState("");
   const [requestBagian, setRequestBagian] = useState<string[]>([]);
 
   // Fetch hewan with sisa kuota
@@ -81,6 +83,7 @@ const ShohibulDaftar = () => {
           alamat,
           no_wa: noWa,
           hewan_id: hewanId,
+          catatan_pendaftaran: catatan.trim() || null,
           tipe_kepemilikan: selectedHewan!.tipe_kepemilikan as "kolektif" | "individu",
           status_penyembelihan: "diwakilkan",
           sumber_pendaftaran: "online",
@@ -225,6 +228,17 @@ const ShohibulDaftar = () => {
             onChange={(e) => setNoWa(e.target.value)}
             placeholder="08xxxxxxxxxx"
           />
+        </div>
+        <div>
+          <Label>Catatan Pendaftaran</Label>
+          <Textarea
+            value={catatan}
+            onChange={(e) => setCatatan(e.target.value)}
+            placeholder="Catatan khusus terkait pendaftaran (opsional), misal: titipan, permintaan khusus, dll."
+            rows={3}
+            className="resize-none"
+          />
+          <p className="text-xs text-muted-foreground mt-1">Opsional — akan disimpan sebagai catatan untuk panitia.</p>
         </div>
       </div>
 
