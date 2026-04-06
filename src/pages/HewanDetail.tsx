@@ -113,13 +113,13 @@ const HewanDetail = () => {
               .from("pilihan_bagian")
               .select("bagian")
               .eq("hewan_id", id!)
-              .in("bagian", kategori.slots);
+              .in("bagian", kategori.slots as any);
             const slotTerpakai = new Set((sudahPilih ?? []).map(p => p.bagian));
-            const slotKosong = kategori.slots.find(s => !slotTerpakai.has(s));
+            const slotKosong = kategori.slots.find(s => !slotTerpakai.has(s as any));
             if (slotKosong) {
               await supabase.from("pilihan_bagian").insert({
-                hewan_id: id!, shohibul_id: shohibulId, bagian: slotKosong,
-              });
+                hewan_id: id!, shohibul_id: shohibulId, bagian: slotKosong as any,
+              } as any);
             }
           }
         }

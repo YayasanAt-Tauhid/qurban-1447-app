@@ -226,13 +226,13 @@ const ShohibulDaftar = () => {
             .from("pilihan_bagian")
             .select("bagian")
             .eq("hewan_id", hewanId)
-            .in("bagian", kategori.slots);
+            .in("bagian", kategori.slots as any);
           const slotTerpakai = new Set((sudahPilih ?? []).map((p: any) => p.bagian));
           const slotKosong = kategori.slots.find(s => !slotTerpakai.has(s));
           if (slotKosong) {
             await supabase.from("pilihan_bagian").insert({
-              hewan_id: hewanId, shohibul_id: inserted.id, bagian: slotKosong,
-            });
+              hewan_id: hewanId, shohibul_id: inserted.id, bagian: slotKosong as any,
+            } as any);
           }
         }
       }
