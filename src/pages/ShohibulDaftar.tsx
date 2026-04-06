@@ -74,6 +74,24 @@ const ShohibulDaftar = () => {
   const selectedHewan = hewanList?.find((h) => h.id === hewanId);
   const isSapi = selectedHewan?.jenis_hewan === "sapi";
 
+  // Fetch jumlah request per kategori untuk hewan yang dipilih
+  const { data: requestCountMap } = useQuery({
+    queryKey: ["request-bagian-count", hewanId],
+    enabled: !!hewanId && isSapi,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("request_bagian")
+        .select("bagian")
+        .eq("hewan_id", hewanId);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      data?.forEach((r) => {
+        map[r.bagian] = (map[r.bagian] || 0) + 1;
+      });
+      return map;
+    },
+  });
+
   const submitMutation = useMutation({
     mutationFn: async () => {
       const { data: inserted, error } = await supabase
@@ -253,24 +271,34 @@ const ShohibulDaftar = () => {
             {KATEGORI_BAGIAN.map(({ id, label, icon, slots }) => {
               const checked = requestBagian.includes(id);
               const kuota = slots.length;
+              const jumlahRequest = requestCountMap?.[id] ?? 0;
+              const penuh = jumlahRequest >= kuota;
+              const disabled = penuh && !checked;
               return (
                 <label
                   key={id}
-                  className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${
-                    checked ? "border-primary bg-primary/5" : "hover:border-primary/50"
+                  className={`flex items-center gap-2 p-3 rounded-lg border transition-all ${
+                    disabled
+                      ? "opacity-50 cursor-not-allowed bg-muted border-muted"
+                      : checked
+                      ? "border-primary bg-primary/5 cursor-pointer"
+                      : "hover:border-primary/50 cursor-pointer"
                   }`}
                 >
                   <Checkbox
                     checked={checked}
+                    disabled={disabled}
                     onCheckedChange={(v) => {
                       if (v) setRequestBagian([...requestBagian, id]);
                       else setRequestBagian(requestBagian.filter((b) => b !== id));
                     }}
                   />
                   <span className="text-lg">{icon}</span>
-                  <span className="text-sm font-medium flex-1">{label}</span>
-                  <span className="text-xs text-muted-foreground bg-muted rounded px-1.5 py-0.5">
-                    maks {kuota}
+                  <span className={`text-sm font-medium flex-1 ${penuh ? "line-through text-muted-foreground" : ""}`}>
+                    {label}
+                  </span>
+                  <span className={`text-xs rounded px-1.5 py-0.5 ${penuh ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>
+                    {jumlahRequest}/{kuota}
                   </span>
                 </label>
               );

@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -22,7 +24,9 @@ const ShohibulDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const [editData, setEditData] = useState({ nama: "", alamat: "", no_wa: "" });
+  const [editData, setEditData] = useState({ nama: "", alamat: "", no_wa: "", catatan_pendaftaran: "" });
+  const [editingBagian, setEditingBagian] = useState(false);
+  const [editBagian, setEditBagian] = useState<string[]>([]);
 
   const { data: shohibul, isLoading } = useQuery({
     queryKey: ["shohibul-detail", id],
@@ -51,6 +55,52 @@ const ShohibulDetail = () => {
     enabled: !!id,
   });
 
+  // Fetch jumlah request per kategori dari semua shohibul pada hewan yang sama
+  const hewanId = shohibul?.hewan_id;
+  const { data: requestCountMap } = useQuery({
+    queryKey: ["request-bagian-count", hewanId],
+    enabled: !!hewanId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("request_bagian")
+        .select("bagian")
+        .eq("hewan_id", hewanId!);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      data?.forEach((r) => { map[r.bagian] = (map[r.bagian] || 0) + 1; });
+      return map;
+    },
+  });
+
+  const saveBagianMutation = useMutation({
+    mutationFn: async (newBagian: string[]) => {
+      // Hapus semua request lama milik shohibul ini
+      await supabase.from("request_bagian").delete().eq("shohibul_qurban_id", id!);
+      // Insert yang baru
+      if (newBagian.length > 0) {
+        const inserts = newBagian.map((bagian) => ({
+          bagian,
+          hewan_id: hewanId!,
+          shohibul_qurban_id: id!,
+        }));
+        const { error } = await supabase.from("request_bagian").insert(inserts);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shohibul-request-bagian", id] });
+      queryClient.invalidateQueries({ queryKey: ["request-bagian-count", hewanId] });
+      setEditingBagian(false);
+      toast.success("Request bagian diperbarui");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const startEditBagian = () => {
+    setEditBagian(requestList?.map((r) => r.bagian) ?? []);
+    setEditingBagian(true);
+  };
+
   const updateChecklistMutation = useMutation({
     mutationFn: async (status: string) => {
       const { error } = await supabase
@@ -70,7 +120,7 @@ const ShohibulDetail = () => {
     mutationFn: async () => {
       const { error } = await supabase
         .from("shohibul_qurban")
-        .update({ nama: editData.nama, alamat: editData.alamat, no_wa: editData.no_wa })
+        .update({ nama: editData.nama, alamat: editData.alamat, no_wa: editData.no_wa, catatan_pendaftaran: editData.catatan_pendaftaran || null })
         .eq("id", id!);
       if (error) throw error;
     },
@@ -109,7 +159,7 @@ const ShohibulDetail = () => {
 
   const startEdit = () => {
     if (shohibul) {
-      setEditData({ nama: shohibul.nama, alamat: shohibul.alamat ?? "", no_wa: shohibul.no_wa ?? "" });
+      setEditData({ nama: shohibul.nama, alamat: shohibul.alamat ?? "", no_wa: shohibul.no_wa ?? "", catatan_pendaftaran: (shohibul as any).catatan_pendaftaran ?? "" });
       setEditing(true);
     }
   };
@@ -160,6 +210,16 @@ const ShohibulDetail = () => {
             <div><Label>Nama</Label><Input value={editData.nama} onChange={(e) => setEditData({ ...editData, nama: e.target.value })} /></div>
             <div><Label>Alamat</Label><Input value={editData.alamat} onChange={(e) => setEditData({ ...editData, alamat: e.target.value })} /></div>
             <div><Label>No. WA</Label><Input value={editData.no_wa} onChange={(e) => setEditData({ ...editData, no_wa: e.target.value })} /></div>
+            <div>
+              <Label>Catatan Pendaftaran</Label>
+              <Textarea
+                value={editData.catatan_pendaftaran}
+                onChange={(e) => setEditData({ ...editData, catatan_pendaftaran: e.target.value })}
+                placeholder="Catatan khusus terkait pendaftaran (opsional)"
+                rows={3}
+                className="resize-none"
+              />
+            </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}><Save className="mr-1 h-4 w-4" /> Simpan</Button>
               <Button size="sm" variant="outline" onClick={() => setEditing(false)}><X className="mr-1 h-4 w-4" /> Batal</Button>
@@ -182,6 +242,12 @@ const ShohibulDetail = () => {
             <div><span className="text-muted-foreground">Panitia Pendaftar</span><p className="font-semibold">{shohibul.panitia_pendaftar}</p></div>
           )}
           <div><span className="text-muted-foreground">Iuran</span><p className="font-semibold">{formatRupiah(Number(hewan?.iuran_per_orang ?? 0))}</p></div>
+          {(shohibul as any).catatan_pendaftaran && (
+            <div className="col-span-2 sm:col-span-3">
+              <span className="text-muted-foreground">Catatan Pendaftaran</span>
+              <p className="font-semibold whitespace-pre-wrap">{(shohibul as any).catatan_pendaftaran}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -231,33 +297,98 @@ const ShohibulDetail = () => {
 
       {/* Request Bagian */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-lg">📋 Survei Awal — Request Bagian</CardTitle>
+          {!editingBagian && (
+            <Button size="sm" variant="outline" onClick={startEditBagian}>
+              <Edit2 className="mr-1 h-4 w-4" /> Edit
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
-          {(!requestList || requestList.length === 0) ? (
-            <p className="text-sm text-muted-foreground">Tidak ada request bagian.</p>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {KATEGORI_BAGIAN.map(({ id, label, icon, slots }) => {
-                const has = requestList.some((r) => r.bagian === id);
-                if (!has) return null;
-                return (
-                  <div key={id} className="p-3 rounded-lg border border-primary bg-primary/5 text-sm flex items-center gap-2">
-                    <span className="text-lg">{icon}</span>
-                    <div>
-                      <p className="font-medium">{label}</p>
-                      <p className="text-xs text-muted-foreground">maks {slots.length} orang</p>
-                    </div>
-                    <Badge className="ml-auto bg-success/10 text-success border-success/20 text-xs">✓</Badge>
-                  </div>
-                );
-              })}
+          {editingBagian ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {KATEGORI_BAGIAN.map(({ id: katId, label, icon, slots }) => {
+                  const checked = editBagian.includes(katId);
+                  const kuota = slots.length;
+                  // Hitung request dari shohibul lain (exclude diri sendiri)
+                  const dariSendiri = requestList?.some((r) => r.bagian === katId) ? 1 : 0;
+                  const jumlahLain = (requestCountMap?.[katId] ?? 0) - dariSendiri;
+                  const penuhTanpaSaya = jumlahLain >= kuota;
+                  const disabled = penuhTanpaSaya && !checked;
+                  return (
+                    <label
+                      key={katId}
+                      className={`flex items-center gap-2 p-3 rounded-lg border transition-all ${
+                        disabled
+                          ? "opacity-50 cursor-not-allowed bg-muted border-muted"
+                          : checked
+                          ? "border-primary bg-primary/5 cursor-pointer"
+                          : "hover:border-primary/50 cursor-pointer"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        disabled={disabled}
+                        onCheckedChange={(v) => {
+                          if (v) setEditBagian([...editBagian, katId]);
+                          else setEditBagian(editBagian.filter((b) => b !== katId));
+                        }}
+                      />
+                      <span className="text-lg">{icon}</span>
+                      <span className={`text-sm font-medium flex-1 ${penuhTanpaSaya ? "line-through text-muted-foreground" : ""}`}>
+                        {label}
+                      </span>
+                      <span className={`text-xs rounded px-1.5 py-0.5 ${penuhTanpaSaya ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>
+                        {jumlahLain}/{kuota}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" variant="outline" onClick={() => setEditingBagian(false)}>
+                  <X className="mr-1 h-4 w-4" /> Batal
+                </Button>
+                <Button size="sm" onClick={() => saveBagianMutation.mutate(editBagian)} disabled={saveBagianMutation.isPending}>
+                  <Save className="mr-1 h-4 w-4" /> {saveBagianMutation.isPending ? "Menyimpan..." : "Simpan"}
+                </Button>
+              </div>
             </div>
+          ) : (
+            <>
+              {(!requestList || requestList.length === 0) ? (
+                <p className="text-sm text-muted-foreground">Tidak ada request bagian.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {KATEGORI_BAGIAN.map(({ id: katId, label, icon, slots }) => {
+                    const has = requestList.some((r) => r.bagian === katId);
+                    if (!has) return null;
+                    const jumlahRequest = requestCountMap?.[katId] ?? 0;
+                    const kuota = slots.length;
+                    const penuh = jumlahRequest >= kuota;
+                    return (
+                      <div key={katId} className="p-3 rounded-lg border border-primary bg-primary/5 text-sm flex items-center gap-2">
+                        <span className="text-lg">{icon}</span>
+                        <div className="flex-1">
+                          <p className={`font-medium ${penuh ? "line-through text-muted-foreground" : ""}`}>{label}</p>
+                          <p className="text-xs text-muted-foreground">{jumlahRequest}/{kuota} request</p>
+                        </div>
+                        {penuh
+                          ? <Badge className="ml-auto bg-destructive/10 text-destructive border-destructive/20 text-xs">Penuh</Badge>
+                          : <Badge className="ml-auto bg-success/10 text-success border-success/20 text-xs">✓</Badge>
+                        }
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-3 italic">
+                Keputusan final ditentukan panitia melalui musyawarah/undian.
+              </p>
+            </>
           )}
-          <p className="text-xs text-muted-foreground mt-3 italic">
-            Keputusan final ditentukan panitia melalui musyawarah/undian.
-          </p>
         </CardContent>
       </Card>
     </div>
