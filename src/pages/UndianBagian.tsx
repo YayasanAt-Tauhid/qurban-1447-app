@@ -234,11 +234,11 @@ const UndianBagian = () => {
       const existing = (statusList as StatusRow[] | undefined)?.find(s => s.bagian === slotId);
       if (existing) {
         await supabase.from("status_bagian")
-          .update({ status, pemenang_id: pemenangId ?? null, updated_at: new Date().toISOString() })
+           .update({ status: status as any, pemenang_id: pemenangId ?? null, updated_at: new Date().toISOString() })
           .eq("id", existing.id);
       } else {
         await supabase.from("status_bagian")
-          .insert({ hewan_id: hewanId!, bagian: slotId, status, pemenang_id: pemenangId ?? null });
+          .insert({ hewan_id: hewanId!, bagian: slotId as any, status: status as any, pemenang_id: pemenangId ?? null } as any);
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["status-bagian", hewanId] }),
