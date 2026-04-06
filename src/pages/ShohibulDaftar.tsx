@@ -390,6 +390,12 @@ const ShohibulDaftar = () => {
         </CardContent>
       </Card>
 
+      <PaymentInfoCard
+        nama={nama}
+        hewanLabel={`${selectedHewan?.nomor_urut} (${selectedHewan?.jenis_hewan})`}
+        iuran={selectedHewan?.iuran_per_orang ?? 0}
+      />
+
       <div className="flex justify-between pt-2">
         <Button variant="outline" onClick={() => setStep("form")}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Edit Data
