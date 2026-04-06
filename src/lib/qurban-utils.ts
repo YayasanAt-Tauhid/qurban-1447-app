@@ -23,7 +23,7 @@ export const SUMBER_HEWAN_LABEL: Record<SumberHewan, string> = {
 export const BIAYA_OPERASIONAL: Record<string, number> = {
   sapi_individu:     1_000_000,
   kambing_individu:    100_000,
-  sapi_kolektif:             0, // sudah termasuk dalam pembagian /7
+  sapi_kolektif:       200_000, // biaya operasional per orang untuk sapi kolektif 7 orang
 };
 
 export function getBiayaOperasional(
@@ -36,14 +36,14 @@ export function getBiayaOperasional(
 
 // ─── Hitung iuran / total yang dibayar ke panitia ────────────────────────────
 //
-//  Sapi kolektif    → harga ÷ 7 (dibulatkan ke ribuan)
+//  Sapi kolektif    → (harga ÷ 7, dibulatkan ke ribuan) + 200.000 operasional
 //  Sapi individu    → beli_panitia : harga + 1.000.000
 //                     bawa_sendiri : 1.000.000 saja (harga = 0)
 //  Kambing individu → beli_panitia : harga + 100.000
 //                     bawa_sendiri : 100.000 saja   (harga = 0)
 //
 export function hitungIuranPerOrang(harga: number): number {
-  // Tetap ada untuk kompatibilitas kolektif
+  // Tetap ada untuk kompatibilitas kolektif (harga saja, belum termasuk operasional)
   return Math.ceil(harga / 7 / 1000) * 1000;
 }
 
@@ -54,7 +54,9 @@ export function hitungTotalPerOrang(
   sumberHewan: SumberHewan = "beli_panitia"
 ): number {
   if (tipeKepemilikan === "kolektif") {
-    return hitungIuranPerOrang(harga);
+    const iuranHewan = hitungIuranPerOrang(harga);
+    const operasional = getBiayaOperasional(jenisHewan, tipeKepemilikan);
+    return iuranHewan + operasional;
   }
   const operasional = getBiayaOperasional(jenisHewan, tipeKepemilikan);
   if (sumberHewan === "bawa_sendiri") return operasional;

@@ -1,10 +1,10 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, FileUp } from "lucide-react";
+import { Plus, Search, FileUp, CheckCircle2, Circle } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -39,6 +39,35 @@ const ShohibulList = () => {
       if (error) throw error;
       return data;
     },
+  });
+
+  const toggleAkadMutation = useMutation({
+    mutationFn: async ({ id, current }: { id: string; current: boolean }) => {
+      const { error } = await supabase
+        .from("shohibul_qurban")
+        .update({ akad_dilakukan: !current, akad_timestamp: !current ? new Date().toISOString() : null })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shohibul-list"] });
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, current }: { id: string; current: string }) => {
+      const next = current === "selesai" ? "pending" : "selesai";
+      const { error } = await supabase
+        .from("shohibul_qurban")
+        .update({ status_checklist_panitia: next as any })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shohibul-list"] });
+    },
+    onError: (err: any) => toast.error(err.message),
   });
 
   const handleImport = async (rows: Record<string, any>[]) => {
@@ -142,15 +171,26 @@ const ShohibulList = () => {
                   </TableCell>
                   <TableCell className="capitalize">{s.tipe_kepemilikan}</TableCell>
                   <TableCell>
-                    <Badge variant={s.akad_dilakukan ? "default" : "outline"}
-                      className={s.akad_dilakukan ? "bg-success/10 text-success border-success/20" : ""}>
-                      {s.akad_dilakukan ? "Sudah" : "Belum"}
-                    </Badge>
+                    <button
+                      onClick={() => isAdmin() && toggleAkadMutation.mutate({ id: s.id, current: !!s.akad_dilakukan })}
+                      className={`flex items-center justify-center transition-colors ${isAdmin() ? "cursor-pointer hover:opacity-70" : "cursor-default"}`}
+                      title={s.akad_dilakukan ? "Akad sudah dilakukan" : "Akad belum dilakukan"}
+                    >
+                      {s.akad_dilakukan
+                        ? <CheckCircle2 className="h-5 w-5 text-success" />
+                        : <Circle className="h-5 w-5 text-muted-foreground/40" />}
+                    </button>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="capitalize">
-                      {s.status_checklist_panitia}
-                    </Badge>
+                    <button
+                      onClick={() => isAdmin() && toggleStatusMutation.mutate({ id: s.id, current: s.status_checklist_panitia ?? "pending" })}
+                      className={`flex items-center justify-center transition-colors ${isAdmin() ? "cursor-pointer hover:opacity-70" : "cursor-default"}`}
+                      title={s.status_checklist_panitia === "selesai" ? "Selesai" : "Belum selesai"}
+                    >
+                      {s.status_checklist_panitia === "selesai"
+                        ? <CheckCircle2 className="h-5 w-5 text-success" />
+                        : <Circle className="h-5 w-5 text-muted-foreground/40" />}
+                    </button>
                   </TableCell>
                 </TableRow>
               ))}

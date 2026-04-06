@@ -579,14 +579,18 @@ const KeuanganPage = () => {
                           </TableCell>
                           <TableCell className="text-right">
                             <p className="font-semibold">{formatRupiah(iur)}</p>
-                            {h?.tipe_kepemilikan === "individu" && (
+                            {h?.tipe_kepemilikan === "individu" ? (
                               <p className="text-xs text-muted-foreground mt-0.5">
                                 {h?.sumber_hewan === "bawa_sendiri"
                                   ? `Operasional: ${formatRupiah(Number(h?.biaya_operasional ?? 0))}`
                                   : `Hewan: ${formatRupiah(Number(h?.harga ?? 0))} + Op: ${formatRupiah(Number(h?.biaya_operasional ?? 0))}`
                                 }
                               </p>
-                            )}
+                            ) : h?.jenis_hewan === "sapi" ? (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Hewan: {formatRupiah(Math.ceil(Number(h?.harga ?? 0) / 7 / 1000) * 1000)} + Op: {formatRupiah(Number(h?.biaya_operasional ?? 0))}
+                              </p>
+                            ) : null}
                           </TableCell>
                           <TableCell className="text-right">{formatRupiah(paid)}</TableCell>
                           <TableCell>
