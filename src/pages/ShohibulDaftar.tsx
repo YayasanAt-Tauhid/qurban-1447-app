@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatRupiah } from "@/lib/qurban-utils";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Copy, Check, MessageCircle } from "lucide-react";
 import { KATEGORI_BAGIAN, getKuotaKategori } from "@/pages/UndianBagian";
 
 interface HewanOption {
@@ -24,6 +24,103 @@ interface HewanOption {
   kuota: number;
   sisa_kuota: number;
 }
+
+const PaymentInfoCard = ({ nama, hewanLabel, iuran }: { nama: string; hewanLabel: string; iuran: number }) => {
+  const [copied, setCopied] = useState(false);
+
+  const templateText = `Bismillaah
+
+Assalamu'alaikum warahmatullahi wabarakatuh,
+
+Berikut informasi pembayaran iuran qurban:
+
+👤 *Nama:* ${nama}
+🐄 *Hewan:* ${hewanLabel}
+💰 *Iuran:* ${formatRupiah(iuran)}
+
+📌 *Opsi Pembayaran:*
+
+1️⃣ *Transfer Bank*
+🏦 Bank Muamalat
+🔢 No. Rekening: 3710050537
+📛 a.n. Panitia Masjid At-Tauhid
+
+2️⃣ *Tunai*
+Bisa langsung diserahkan kepada Bendahara Panitia (Akh Rapi).
+
+📲 Mohon konfirmasi setelah pembayaran ke:
+*Bendahara Panitia (Akh Rapi)*
+📞 WhatsApp: wa.me/6288276358366
+
+Jazakumullahu khairan, semoga qurban kita diterima Allah ﷻ. Aamiin.
+
+Wassalamu'alaikum warahmatullahi wabarakatuh`;
+
+  const waLink = `https://wa.me/6288276358366?text=${encodeURIComponent(templateText)}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(templateText);
+    setCopied(true);
+    toast.success("Template pembayaran berhasil disalin!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Card className="border-border">
+      <CardContent className="p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-foreground">💳 Informasi Pembayaran</h3>
+
+        <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-2">
+          <p className="font-medium">📌 Opsi Pembayaran:</p>
+
+          <div className="space-y-1 pl-1">
+            <p className="font-medium">1️⃣ Transfer Bank</p>
+            <p>🏦 Bank Muamalat</p>
+            <p>🔢 No. Rekening: <span className="font-mono font-semibold">3710050537</span></p>
+            <p>📛 a.n. <span className="font-semibold">Panitia Masjid At-Tauhid</span></p>
+          </div>
+
+          <div className="space-y-1 pl-1">
+            <p className="font-medium">2️⃣ Tunai</p>
+            <p>Langsung ke Bendahara Panitia (Akh Rapi)</p>
+          </div>
+
+          <div className="pt-1 border-t border-border">
+            <p>📲 Konfirmasi pembayaran ke:</p>
+            <p className="font-semibold">Bendahara Panitia (Akh Rapi)</p>
+            <a
+              href="https://wa.me/6288276358366"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline text-sm"
+            >
+              📞 WhatsApp: 088276358366
+            </a>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={handleCopy}
+          >
+            {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+            {copied ? "Tersalin!" : "Salin Template"}
+          </Button>
+          <a href={waLink} target="_blank" rel="noopener noreferrer" className="flex-1">
+            <Button type="button" size="sm" className="w-full">
+              <MessageCircle className="mr-2 h-4 w-4" /> Kirim via WA
+            </Button>
+          </a>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 
 const ShohibulDaftar = () => {
   const navigate = useNavigate();
@@ -389,6 +486,12 @@ const ShohibulDaftar = () => {
           </p>
         </CardContent>
       </Card>
+
+      <PaymentInfoCard
+        nama={nama}
+        hewanLabel={`${selectedHewan?.nomor_urut} (${selectedHewan?.jenis_hewan})`}
+        iuran={selectedHewan?.iuran_per_orang ?? 0}
+      />
 
       <div className="flex justify-between pt-2">
         <Button variant="outline" onClick={() => setStep("form")}>

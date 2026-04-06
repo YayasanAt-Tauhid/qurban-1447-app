@@ -181,6 +181,68 @@ export type Database = {
           },
         ]
       }
+      log_undian: {
+        Row: {
+          bagian: Database["public"]["Enums"]["bagian_hewan"]
+          created_at: string | null
+          dilakukan_oleh: string | null
+          hewan_id: string
+          id: string
+          pemenang_id: string
+          peserta: string[]
+          seed: string
+        }
+        Insert: {
+          bagian: Database["public"]["Enums"]["bagian_hewan"]
+          created_at?: string | null
+          dilakukan_oleh?: string | null
+          hewan_id: string
+          id?: string
+          pemenang_id: string
+          peserta: string[]
+          seed: string
+        }
+        Update: {
+          bagian?: Database["public"]["Enums"]["bagian_hewan"]
+          created_at?: string | null
+          dilakukan_oleh?: string | null
+          hewan_id?: string
+          id?: string
+          pemenang_id?: string
+          peserta?: string[]
+          seed?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "log_undian_dilakukan_oleh_fkey"
+            columns: ["dilakukan_oleh"]
+            isOneToOne: false
+            referencedRelation: "shohibul_qurban"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "log_undian_hewan_id_fkey"
+            columns: ["hewan_id"]
+            isOneToOne: false
+            referencedRelation: "hewan_dengan_kuota"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "log_undian_hewan_id_fkey"
+            columns: ["hewan_id"]
+            isOneToOne: false
+            referencedRelation: "hewan_qurban"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "log_undian_pemenang_id_fkey"
+            columns: ["pemenang_id"]
+            isOneToOne: false
+            referencedRelation: "shohibul_qurban"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mustahiq: {
         Row: {
           created_at: string
@@ -262,6 +324,52 @@ export type Database = {
         }
         Relationships: []
       }
+      pilihan_bagian: {
+        Row: {
+          bagian: Database["public"]["Enums"]["bagian_hewan"]
+          created_at: string | null
+          hewan_id: string
+          id: string
+          shohibul_id: string
+        }
+        Insert: {
+          bagian: Database["public"]["Enums"]["bagian_hewan"]
+          created_at?: string | null
+          hewan_id: string
+          id?: string
+          shohibul_id: string
+        }
+        Update: {
+          bagian?: Database["public"]["Enums"]["bagian_hewan"]
+          created_at?: string | null
+          hewan_id?: string
+          id?: string
+          shohibul_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilihan_bagian_hewan_id_fkey"
+            columns: ["hewan_id"]
+            isOneToOne: false
+            referencedRelation: "hewan_dengan_kuota"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilihan_bagian_hewan_id_fkey"
+            columns: ["hewan_id"]
+            isOneToOne: false
+            referencedRelation: "hewan_qurban"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pilihan_bagian_shohibul_id_fkey"
+            columns: ["shohibul_id"]
+            isOneToOne: false
+            referencedRelation: "shohibul_qurban"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       request_bagian: {
         Row: {
           bagian: string
@@ -311,144 +419,13 @@ export type Database = {
           },
         ]
       }
-      log_undian: {
-        Row: {
-          bagian: string
-          created_at: string | null
-          dilakukan_oleh: string | null
-          hewan_id: string
-          id: string
-          peserta: string[]
-          pemenang_id: string
-          seed: string
-        }
-        Insert: {
-          bagian: string
-          created_at?: string | null
-          dilakukan_oleh?: string | null
-          hewan_id: string
-          id?: string
-          peserta: string[]
-          pemenang_id: string
-          seed: string
-        }
-        Update: {
-          bagian?: string
-          created_at?: string | null
-          dilakukan_oleh?: string | null
-          hewan_id?: string
-          id?: string
-          peserta?: string[]
-          pemenang_id?: string
-          seed?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "log_undian_hewan_id_fkey"
-            columns: ["hewan_id"]
-            isOneToOne: false
-            referencedRelation: "hewan_qurban"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "log_undian_pemenang_id_fkey"
-            columns: ["pemenang_id"]
-            isOneToOne: false
-            referencedRelation: "shohibul_qurban"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pilihan_bagian: {
-        Row: {
-          bagian: string
-          created_at: string | null
-          hewan_id: string
-          id: string
-          shohibul_id: string
-        }
-        Insert: {
-          bagian: string
-          created_at?: string | null
-          hewan_id: string
-          id?: string
-          shohibul_id: string
-        }
-        Update: {
-          bagian?: string
-          created_at?: string | null
-          hewan_id?: string
-          id?: string
-          shohibul_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pilihan_bagian_hewan_id_fkey"
-            columns: ["hewan_id"]
-            isOneToOne: false
-            referencedRelation: "hewan_qurban"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pilihan_bagian_shohibul_id_fkey"
-            columns: ["shohibul_id"]
-            isOneToOne: false
-            referencedRelation: "shohibul_qurban"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      status_bagian: {
-        Row: {
-          bagian: string
-          catatan_panitia: string | null
-          hewan_id: string
-          id: string
-          pemenang_id: string | null
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          bagian: string
-          catatan_panitia?: string | null
-          hewan_id: string
-          id?: string
-          pemenang_id?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          bagian?: string
-          catatan_panitia?: string | null
-          hewan_id?: string
-          id?: string
-          pemenang_id?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "status_bagian_hewan_id_fkey"
-            columns: ["hewan_id"]
-            isOneToOne: false
-            referencedRelation: "hewan_qurban"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "status_bagian_pemenang_id_fkey"
-            columns: ["pemenang_id"]
-            isOneToOne: false
-            referencedRelation: "shohibul_qurban"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       shohibul_qurban: {
         Row: {
           akad_dilakukan: boolean | null
           akad_diwakilkan: boolean | null
           akad_timestamp: string | null
           alamat: string | null
+          catatan_pendaftaran: string | null
           created_at: string
           hewan_id: string | null
           id: string
@@ -456,7 +433,6 @@ export type Database = {
           nama_wakil_akad: string | null
           no_wa: string | null
           panitia_pendaftar: string | null
-          catatan_pendaftaran: string | null
           status_checklist_panitia:
             | Database["public"]["Enums"]["status_checklist"]
             | null
@@ -474,6 +450,7 @@ export type Database = {
           akad_diwakilkan?: boolean | null
           akad_timestamp?: string | null
           alamat?: string | null
+          catatan_pendaftaran?: string | null
           created_at?: string
           hewan_id?: string | null
           id?: string
@@ -481,7 +458,6 @@ export type Database = {
           nama_wakil_akad?: string | null
           no_wa?: string | null
           panitia_pendaftar?: string | null
-          catatan_pendaftaran?: string | null
           status_checklist_panitia?:
             | Database["public"]["Enums"]["status_checklist"]
             | null
@@ -499,6 +475,7 @@ export type Database = {
           akad_diwakilkan?: boolean | null
           akad_timestamp?: string | null
           alamat?: string | null
+          catatan_pendaftaran?: string | null
           created_at?: string
           hewan_id?: string | null
           id?: string
@@ -506,7 +483,6 @@ export type Database = {
           nama_wakil_akad?: string | null
           no_wa?: string | null
           panitia_pendaftar?: string | null
-          catatan_pendaftaran?: string | null
           status_checklist_panitia?:
             | Database["public"]["Enums"]["status_checklist"]
             | null
@@ -536,15 +512,84 @@ export type Database = {
           },
         ]
       }
+      status_bagian: {
+        Row: {
+          bagian: Database["public"]["Enums"]["bagian_hewan"]
+          catatan_panitia: string | null
+          hewan_id: string
+          id: string
+          pemenang_id: string | null
+          status: Database["public"]["Enums"]["status_pilih_bagian"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          bagian: Database["public"]["Enums"]["bagian_hewan"]
+          catatan_panitia?: string | null
+          hewan_id: string
+          id?: string
+          pemenang_id?: string | null
+          status?: Database["public"]["Enums"]["status_pilih_bagian"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          bagian?: Database["public"]["Enums"]["bagian_hewan"]
+          catatan_panitia?: string | null
+          hewan_id?: string
+          id?: string
+          pemenang_id?: string | null
+          status?: Database["public"]["Enums"]["status_pilih_bagian"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "status_bagian_hewan_id_fkey"
+            columns: ["hewan_id"]
+            isOneToOne: false
+            referencedRelation: "hewan_dengan_kuota"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "status_bagian_hewan_id_fkey"
+            columns: ["hewan_id"]
+            isOneToOne: false
+            referencedRelation: "hewan_qurban"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "status_bagian_pemenang_id_fkey"
+            columns: ["pemenang_id"]
+            isOneToOne: false
+            referencedRelation: "shohibul_qurban"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       distribusi_bagian: {
         Row: {
-          bagian: Database["public"]["Enums"]["bagian_hewan"] | null
+          bagian: string | null
+          catatan: string | null
+          created_at: string | null
           hewan_id: string | null
-          jumlah_request: number | null
-          list_nama_shohibul: string[] | null
-          status: string | null
+          id: string | null
+          shohibul_qurban_id: string | null
+        }
+        Insert: {
+          bagian?: string | null
+          catatan?: string | null
+          created_at?: string | null
+          hewan_id?: string | null
+          id?: string | null
+          shohibul_qurban_id?: string | null
+        }
+        Update: {
+          bagian?: string | null
+          catatan?: string | null
+          created_at?: string | null
+          hewan_id?: string | null
+          id?: string | null
+          shohibul_qurban_id?: string | null
         }
         Relationships: [
           {
@@ -559,6 +604,13 @@ export type Database = {
             columns: ["hewan_id"]
             isOneToOne: false
             referencedRelation: "hewan_qurban"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "request_bagian_shohibul_qurban_id_fkey"
+            columns: ["shohibul_qurban_id"]
+            isOneToOne: false
+            referencedRelation: "shohibul_qurban"
             referencedColumns: ["id"]
           },
         ]
@@ -585,8 +637,6 @@ export type Database = {
           ras: string | null
           sisa_kuota: number | null
           status: Database["public"]["Enums"]["status_hewan"] | null
-          sumber_hewan: Database["public"]["Enums"]["sumber_hewan"] | null
-          biaya_operasional: number | null
           tahun: number | null
           tanggal_booking: string | null
           tipe_kepemilikan:
@@ -605,7 +655,38 @@ export type Database = {
       is_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      bagian_hewan: "jeroan" | "kepala" | "kulit" | "ekor" | "kaki" | "tulang"
+      bagian_hewan:
+        | "jeroan"
+        | "kepala"
+        | "kulit"
+        | "ekor"
+        | "kaki"
+        | "tulang"
+        | "tulang_kaki_1"
+        | "tulang_kaki_2"
+        | "tulang_kaki_3"
+        | "tulang_kaki_4"
+        | "ginjal"
+        | "jantung"
+        | "paru_1"
+        | "paru_2"
+        | "babat_1"
+        | "babat_2"
+        | "babat_3"
+        | "usus_1"
+        | "usus_2"
+        | "lemak_1"
+        | "lemak_2"
+        | "lemak_3"
+        | "hati"
+        | "daging_pipi_1"
+        | "daging_pipi_2"
+        | "limpa"
+        | "lidah"
+        | "kulit_1"
+        | "kulit_2"
+        | "kulit_3"
+        | "rangka_kepala"
       divisi_panitia:
         | "ketua"
         | "sekretaris"
@@ -643,6 +724,7 @@ export type Database = {
       status_hewan: "survei" | "booking" | "lunas"
       status_kupon: "belum_ambil" | "sudah_ambil"
       status_penyembelihan: "sendiri" | "diwakilkan"
+      status_pilih_bagian: "aman" | "sengketa" | "undian" | "selesai" | "kosong"
       sumber_hewan: "beli_panitia" | "bawa_sendiri"
       sumber_pendaftaran: "online" | "manual"
       tipe_kepemilikan: "kolektif" | "individu"
@@ -774,7 +856,39 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      bagian_hewan: ["jeroan", "kepala", "kulit", "ekor", "kaki", "tulang"],
+      bagian_hewan: [
+        "jeroan",
+        "kepala",
+        "kulit",
+        "ekor",
+        "kaki",
+        "tulang",
+        "tulang_kaki_1",
+        "tulang_kaki_2",
+        "tulang_kaki_3",
+        "tulang_kaki_4",
+        "ginjal",
+        "jantung",
+        "paru_1",
+        "paru_2",
+        "babat_1",
+        "babat_2",
+        "babat_3",
+        "usus_1",
+        "usus_2",
+        "lemak_1",
+        "lemak_2",
+        "lemak_3",
+        "hati",
+        "daging_pipi_1",
+        "daging_pipi_2",
+        "limpa",
+        "lidah",
+        "kulit_1",
+        "kulit_2",
+        "kulit_3",
+        "rangka_kepala",
+      ],
       divisi_panitia: [
         "ketua",
         "sekretaris",
@@ -815,6 +929,8 @@ export const Constants = {
       status_hewan: ["survei", "booking", "lunas"],
       status_kupon: ["belum_ambil", "sudah_ambil"],
       status_penyembelihan: ["sendiri", "diwakilkan"],
+      status_pilih_bagian: ["aman", "sengketa", "undian", "selesai", "kosong"],
+      sumber_hewan: ["beli_panitia", "bawa_sendiri"],
       sumber_pendaftaran: ["online", "manual"],
       tipe_kepemilikan: ["kolektif", "individu"],
       ukuran_seragam: ["S", "M", "L", "XL", "XXL"],
