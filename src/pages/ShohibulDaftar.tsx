@@ -20,6 +20,8 @@ interface HewanOption {
   jenis_hewan: string;
   tipe_kepemilikan: string;
   harga: number;
+  biaya_operasional: number;
+  sumber_hewan: string | null;
   iuran_per_orang: number;
   kuota: number;
   sisa_kuota: number;
