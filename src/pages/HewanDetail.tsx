@@ -103,7 +103,8 @@ const HewanDetail = () => {
             // Individu: langsung dapat SEMUA slot dari kategori ini (misal tulang_kaki → 4 slot sekaligus)
             for (const slot of kategori.slots) {
               await supabase.from("pilihan_bagian").insert({
-                hewan_id: id!, shohibul_id: shohibulId, bagian: slot,
+                hewan_id: id!, shohibul_id: shohibulId, bagian: slot as any,
+              } as any);
               });
             }
           } else {
