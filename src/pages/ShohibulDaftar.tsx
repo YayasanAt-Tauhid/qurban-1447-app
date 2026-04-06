@@ -326,6 +326,12 @@ const ShohibulDaftar = () => {
             <span className="font-medium">{requestBagian.map(id => KATEGORI_BAGIAN.find(k => k.id === id)?.label ?? id).join(", ")}</span>
           </div>
         )}
+        {catatan.trim() && (
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground shrink-0">Catatan</span>
+            <span className="font-medium text-right">{catatan.trim()}</span>
+          </div>
+        )}
       </div>
       <Card className="border-primary bg-primary/5">
         <CardContent className="p-4 text-center">
