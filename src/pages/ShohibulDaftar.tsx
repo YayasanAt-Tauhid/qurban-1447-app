@@ -264,9 +264,29 @@ const ShohibulDaftar = () => {
       {isSapi && (
         <div className="space-y-3">
           <h2 className="text-base font-semibold">Request Bagian Hewan (Opsional)</h2>
-          <p className="text-sm text-muted-foreground">
-            Pilih bagian yang Anda minati. Angka di kanan = maks shohibul yang bisa dapat bagian ini.
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Pilih bagian yang Anda minati. Angka di kanan = maks shohibul yang bisa dapat bagian ini.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const tersedia = KATEGORI_BAGIAN.filter(({ id, slots }) => {
+                  const jumlahRequest = requestCountMap?.[id] ?? 0;
+                  return jumlahRequest < slots.length;
+                }).map(({ id }) => id);
+                const semuaTerpilih = tersedia.every((id) => requestBagian.includes(id));
+                if (semuaTerpilih) setRequestBagian([]);
+                else setRequestBagian(tersedia);
+              }}
+              className="text-xs text-primary hover:underline whitespace-nowrap ml-3 shrink-0"
+            >
+              {(() => {
+                const tersedia = KATEGORI_BAGIAN.filter(({ id, slots }) => (requestCountMap?.[id] ?? 0) < slots.length).map(({ id }) => id);
+                return tersedia.every((id) => requestBagian.includes(id)) ? "Batal Semua" : "Pilih Semua";
+              })()}
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {KATEGORI_BAGIAN.map(({ id, label, icon, slots }) => {
               const checked = requestBagian.includes(id);
