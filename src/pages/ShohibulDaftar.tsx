@@ -20,13 +20,51 @@ interface HewanOption {
   jenis_hewan: string;
   tipe_kepemilikan: string;
   harga: number;
+  biaya_operasional: number;
+  sumber_hewan: string | null;
   iuran_per_orang: number;
   kuota: number;
   sisa_kuota: number;
 }
 
-const PaymentInfoCard = ({ nama, hewanLabel, iuran }: { nama: string; hewanLabel: string; iuran: number }) => {
+interface PaymentInfoProps {
+  nama: string;
+  hewanLabel: string;
+  iuran: number;
+  harga: number;
+  biayaOperasional: number;
+  tipeKepemilikan: string;
+  kuota: number;
+  sumberHewan: string | null;
+}
+
+const PaymentInfoCard = ({ nama, hewanLabel, iuran, harga, biayaOperasional, tipeKepemilikan, kuota, sumberHewan }: PaymentInfoProps) => {
   const [copied, setCopied] = useState(false);
+
+  const isBawaSendiri = sumberHewan === "bawa_sendiri";
+
+  // Build rincian biaya
+  let rincianLines: string[] = [];
+  if (tipeKepemilikan === "kolektif") {
+    const hargaPerOrang = Math.ceil(harga / kuota / 1000) * 1000;
+    rincianLines = [
+      `Harga hewan ÷ ${kuota} orang: ${formatRupiah(hargaPerOrang)}`,
+      `Biaya operasional: ${formatRupiah(biayaOperasional)}`,
+      `*Total iuran per orang: ${formatRupiah(iuran)}*`,
+    ];
+  } else if (isBawaSendiri) {
+    rincianLines = [
+      `Biaya operasional: ${formatRupiah(biayaOperasional)}`,
+      `_(Hewan dibawa sendiri)_`,
+      `*Total dibayar ke panitia: ${formatRupiah(iuran)}*`,
+    ];
+  } else {
+    rincianLines = [
+      `Harga hewan: ${formatRupiah(harga)}`,
+      `Biaya operasional: ${formatRupiah(biayaOperasional)}`,
+      `*Total dibayar ke panitia: ${formatRupiah(iuran)}*`,
+    ];
+  }
 
   const templateText = `Bismillaah
 
@@ -36,7 +74,9 @@ Berikut informasi pembayaran iuran qurban:
 
 👤 *Nama:* ${nama}
 🐄 *Hewan:* ${hewanLabel}
-💰 *Iuran:* ${formatRupiah(iuran)}
+
+💰 *Rincian Biaya:*
+${rincianLines.join("\n")}
 
 📌 *Opsi Pembayaran:*
 
@@ -161,6 +201,8 @@ const ShohibulDaftar = () => {
         jenis_hewan: h.jenis_hewan,
         tipe_kepemilikan: h.tipe_kepemilikan,
         harga: Number(h.harga),
+        biaya_operasional: Number(h.biaya_operasional),
+        sumber_hewan: h.sumber_hewan,
         iuran_per_orang: Number(h.iuran_per_orang),
         kuota: h.kuota,
         sisa_kuota: h.kuota - (countMap[h.id] || 0),
@@ -491,6 +533,11 @@ const ShohibulDaftar = () => {
         nama={nama}
         hewanLabel={`${selectedHewan?.nomor_urut} (${selectedHewan?.jenis_hewan})`}
         iuran={selectedHewan?.iuran_per_orang ?? 0}
+        harga={selectedHewan?.harga ?? 0}
+        biayaOperasional={selectedHewan?.biaya_operasional ?? 0}
+        tipeKepemilikan={selectedHewan?.tipe_kepemilikan ?? "kolektif"}
+        kuota={selectedHewan?.kuota ?? 7}
+        sumberHewan={selectedHewan?.sumber_hewan ?? null}
       />
 
       <div className="flex justify-between pt-2">
