@@ -366,10 +366,10 @@ const KeuanganPage = () => {
   })();
 
   const filteredHewan = hewanList?.filter((h) => {
+    if (h.sumber_hewan !== "beli_panitia") return false;
     if (filterPenjual === "semua") return true;
-    if (filterPenjual === "bawa_sendiri") return h.sumber_hewan === "bawa_sendiri";
     const harga = Number(h.harga ?? 0);
-    return h.sumber_hewan === "beli_panitia" && getPenjualPaymentStatus(h.id, harga) === filterPenjual;
+    return getPenjualPaymentStatus(h.id, harga) === filterPenjual;
   });
 
   const filteredIuran = shohibulIuran?.filter((s) => {
@@ -760,7 +760,6 @@ const KeuanganPage = () => {
                   { val: "belum", label: "Belum Bayar" },
                   { val: "dp", label: "DP" },
                   { val: "lunas", label: "Lunas" },
-                  { val: "bawa_sendiri", label: "Bawa Sendiri" },
                 ].map((f) => (
                   <Button
                     key={f.val}
