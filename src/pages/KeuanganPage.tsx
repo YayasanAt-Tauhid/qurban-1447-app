@@ -36,6 +36,15 @@ const KeuanganPage = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [iuranDialogOpen, setIuranDialogOpen] = useState(false);
   const [filterBayar, setFilterBayar] = useState("semua");
+  const [filterPenjual, setFilterPenjual] = useState("semua");
+  const [penjualDialogOpen, setPenjualDialogOpen] = useState(false);
+  const [penjualHewanId, setPenjualHewanId] = useState("");
+  const [penjualNama, setPenjualNama] = useState("");
+  const [penjualHp, setPenjualHp] = useState("");
+  const [penjualHarga, setPenjualHarga] = useState(0);
+  const [penjualJumlah, setPenjualJumlah] = useState("");
+  const [penjualMetode, setPenjualMetode] = useState<"tunai" | "bank">("tunai");
+  const [penjualKeterangan, setPenjualKeterangan] = useState("");
 
   // Iuran payment form state
   const [payNama, setPayNama] = useState("");
