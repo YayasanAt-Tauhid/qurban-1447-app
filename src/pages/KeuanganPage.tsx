@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { formatRupiah, formatTanggal, SUMBER_HEWAN_LABEL, type SumberHewan } from "@/lib/qurban-utils";
-import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard, FileUp, Banknote, Landmark, Edit2, Trash2 } from "lucide-react";
+import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard, FileUp, Banknote, Landmark, Edit2, Trash2, Store } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import ImportExcelDialog from "@/components/ImportExcelDialog";
@@ -36,6 +36,15 @@ const KeuanganPage = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [iuranDialogOpen, setIuranDialogOpen] = useState(false);
   const [filterBayar, setFilterBayar] = useState("semua");
+  const [filterPenjual, setFilterPenjual] = useState("semua");
+  const [penjualDialogOpen, setPenjualDialogOpen] = useState(false);
+  const [penjualHewanId, setPenjualHewanId] = useState("");
+  const [penjualNama, setPenjualNama] = useState("");
+  const [penjualHp, setPenjualHp] = useState("");
+  const [penjualHarga, setPenjualHarga] = useState(0);
+  const [penjualJumlah, setPenjualJumlah] = useState("");
+  const [penjualMetode, setPenjualMetode] = useState<"tunai" | "bank">("tunai");
+  const [penjualKeterangan, setPenjualKeterangan] = useState("");
 
   // Iuran payment form state
   const [payNama, setPayNama] = useState("");
@@ -89,7 +98,80 @@ const KeuanganPage = () => {
     },
   });
 
-  const getPaymentTotal = (shohibulId: string) => {
+  // Hewan list for Bayar Penjual tab
+  const { data: hewanList, isLoading: loadingHewan } = useQuery({
+    queryKey: ["hewan-penjual"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("hewan_qurban")
+        .select("id, nomor_urut, jenis_hewan, sumber_hewan, nama_penjual, hp_penjual, harga")
+        .order("nomor_urut");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Payments to sellers from kas
+  const { data: penjualPayments } = useQuery({
+    queryKey: ["penjual-payments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("kas")
+        .select("*")
+        .eq("jenis", "keluar")
+        .eq("kategori", "bayar penjual");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const getPenjualPaymentTotal = (hewanId: string) => {
+    if (!penjualPayments) return 0;
+    return penjualPayments
+      .filter((p) => p.keterangan?.includes(hewanId))
+      .reduce((sum, p) => sum + Number(p.jumlah), 0);
+  };
+
+  const getPenjualPaymentStatus = (hewanId: string, harga: number) => {
+    const total = getPenjualPaymentTotal(hewanId);
+    if (total <= 0) return "belum";
+    if (total >= harga) return "lunas";
+    return "dp";
+  };
+
+  const openPenjualPayDialog = (h: any) => {
+    setPenjualHewanId(h.id);
+    setPenjualNama(h.nama_penjual ?? "");
+    setPenjualHp(h.hp_penjual ?? "");
+    setPenjualHarga(Number(h.harga ?? 0));
+    setPenjualJumlah("");
+    setPenjualMetode("tunai");
+    setPenjualKeterangan(`Bayar penjual hewan ${h.nomor_urut} (${h.jenis_hewan}) - ${h.nama_penjual ?? ""}`);
+    setPenjualDialogOpen(true);
+  };
+
+  const penjualPayMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("kas").insert({
+        tanggal: new Date().toISOString().split("T")[0],
+        jenis: "keluar" as const,
+        metode: penjualMetode,
+        kategori: "bayar penjual",
+        keterangan: `${penjualKeterangan} [${penjualHewanId}]`,
+        jumlah: parseInt(penjualJumlah) || 0,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kas-list"] });
+      queryClient.invalidateQueries({ queryKey: ["penjual-payments"] });
+      setPenjualDialogOpen(false);
+      toast.success("Pembayaran penjual berhasil dicatat");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+
     if (!iuranPayments) return 0;
     return iuranPayments
       .filter((p) => p.keterangan?.includes(shohibulId))
@@ -268,6 +350,28 @@ const KeuanganPage = () => {
     return { lunas, dp, belum, total };
   })();
 
+  // Penjual summary
+  const penjualSummary = (() => {
+    if (!hewanList) return { totalBeliPanitia: 0, lunas: 0, belumLunas: 0, totalNilai: 0 };
+    const beliPanitia = hewanList.filter((h) => h.sumber_hewan === "beli_panitia");
+    let lunas = 0, belumLunas = 0, totalNilai = 0;
+    beliPanitia.forEach((h) => {
+      const harga = Number(h.harga ?? 0);
+      totalNilai += harga;
+      const status = getPenjualPaymentStatus(h.id, harga);
+      if (status === "lunas") lunas++;
+      else belumLunas++;
+    });
+    return { totalBeliPanitia: beliPanitia.length, lunas, belumLunas, totalNilai };
+  })();
+
+  const filteredHewan = hewanList?.filter((h) => {
+    if (filterPenjual === "semua") return true;
+    if (filterPenjual === "bawa_sendiri") return h.sumber_hewan === "bawa_sendiri";
+    const harga = Number(h.harga ?? 0);
+    return h.sumber_hewan === "beli_panitia" && getPenjualPaymentStatus(h.id, harga) === filterPenjual;
+  });
+
   const filteredIuran = shohibulIuran?.filter((s) => {
     if (filterBayar === "semua") return true;
     const h = s.hewan_qurban as any;
@@ -286,6 +390,7 @@ const KeuanganPage = () => {
         <TabsList>
           <TabsTrigger value="buku-kas">Buku Kas</TabsTrigger>
           <TabsTrigger value="iuran">Iuran Shohibul</TabsTrigger>
+          <TabsTrigger value="bayar-penjual">Bayar Penjual</TabsTrigger>
         </TabsList>
 
         <TabsContent value="buku-kas" className="space-y-6">
@@ -616,9 +721,161 @@ const KeuanganPage = () => {
             </>
           )}
         </TabsContent>
+
+        <TabsContent value="bayar-penjual" className="space-y-6">
+          {loadingHewan ? <Skeleton className="h-48 w-full" /> : (
+            <>
+              {/* Summary */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold text-primary">{penjualSummary.totalBeliPanitia}</p>
+                    <p className="text-xs text-muted-foreground">Beli Panitia</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold text-success">{penjualSummary.lunas}</p>
+                    <p className="text-xs text-muted-foreground">Sudah Lunas</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold text-destructive">{penjualSummary.belumLunas}</p>
+                    <p className="text-xs text-muted-foreground">Belum Lunas</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-lg font-bold text-primary">{formatRupiah(penjualSummary.totalNilai)}</p>
+                    <p className="text-xs text-muted-foreground">Total Nilai Hewan</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Filter */}
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { val: "semua", label: "Semua" },
+                  { val: "belum", label: "Belum Bayar" },
+                  { val: "dp", label: "DP" },
+                  { val: "lunas", label: "Lunas" },
+                  { val: "bawa_sendiri", label: "Bawa Sendiri" },
+                ].map((f) => (
+                  <Button
+                    key={f.val}
+                    size="sm"
+                    variant={filterPenjual === f.val ? "default" : "outline"}
+                    onClick={() => setFilterPenjual(f.val)}
+                  >
+                    {f.label}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="table-container">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>No Urut</TableHead>
+                      <TableHead>Jenis</TableHead>
+                      <TableHead>Sumber</TableHead>
+                      <TableHead>Penjual</TableHead>
+                      <TableHead className="text-right">Harga</TableHead>
+                      <TableHead className="text-right">Terbayar</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredHewan?.length === 0 && (
+                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Belum ada data</TableCell></TableRow>
+                    )}
+                    {filteredHewan?.map((h) => {
+                      const isBawaSendiri = h.sumber_hewan === "bawa_sendiri";
+                      const harga = Number(h.harga ?? 0);
+                      const paid = isBawaSendiri ? 0 : getPenjualPaymentTotal(h.id);
+                      const status = isBawaSendiri ? "bawa_sendiri" : getPenjualPaymentStatus(h.id, harga);
+                      return (
+                        <TableRow key={h.id}>
+                          <TableCell className="font-medium">{h.nomor_urut}</TableCell>
+                          <TableCell className="capitalize">{h.jenis_hewan}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {isBawaSendiri ? "Bawa Sendiri" : "Beli Panitia"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{isBawaSendiri ? <span className="text-muted-foreground">-</span> : (h.nama_penjual || "-")}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatRupiah(harga)}</TableCell>
+                          <TableCell className="text-right">{isBawaSendiri ? "-" : formatRupiah(paid)}</TableCell>
+                          <TableCell>
+                            {isBawaSendiri ? (
+                              <Badge variant="secondary" className="text-xs">Bawa Sendiri</Badge>
+                            ) : (
+                              <Badge className={
+                                status === "lunas" ? "bg-success/10 text-success border-success/20" :
+                                status === "dp" ? "bg-warning/10 text-warning border-warning/20" :
+                                "bg-destructive/10 text-destructive border-destructive/20"
+                              }>
+                                {status === "lunas" ? "Lunas" : status === "dp" ? "DP" : "Belum Bayar"}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isBawaSendiri ? (
+                              <Button size="sm" variant="outline" disabled>
+                                <Store className="mr-1 h-3 w-3" /> Bayar
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="outline" onClick={() => openPenjualPayDialog(h)}>
+                                <Store className="mr-1 h-3 w-3" /> Bayar
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </TabsContent>
       </Tabs>
 
-      {/* Payment Dialog */}
+      {/* Penjual Payment Dialog */}
+      <Dialog open={penjualDialogOpen} onOpenChange={setPenjualDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Catat Pembayaran ke Penjual</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Nama Penjual</Label><Input value={penjualNama} readOnly className="bg-muted" /></div>
+            <div><Label>No HP Penjual</Label><Input value={penjualHp || "-"} readOnly className="bg-muted" /></div>
+            <div><Label>Harga Hewan (Total)</Label><Input value={formatRupiah(penjualHarga)} readOnly className="bg-muted font-semibold" /></div>
+            <div>
+              <Label>Sudah Terbayar</Label>
+              <Input value={formatRupiah(getPenjualPaymentTotal(penjualHewanId))} readOnly className="bg-muted" />
+            </div>
+            <div>
+              <Label>Sisa</Label>
+              <Input value={formatRupiah(Math.max(0, penjualHarga - getPenjualPaymentTotal(penjualHewanId)))} readOnly className="bg-muted" />
+            </div>
+            <div><Label>Jumlah Dibayar (Rp)</Label><Input type="number" value={penjualJumlah} onChange={(e) => setPenjualJumlah(e.target.value)} placeholder="0" /></div>
+            <div>
+              <Label>Metode</Label>
+              <RadioGroup value={penjualMetode} onValueChange={(v) => setPenjualMetode(v as any)} className="flex gap-4 mt-1">
+                <div className="flex items-center gap-2"><RadioGroupItem value="tunai" id="pj-tunai" /><Label htmlFor="pj-tunai">Tunai</Label></div>
+                <div className="flex items-center gap-2"><RadioGroupItem value="bank" id="pj-bank" /><Label htmlFor="pj-bank">Bank</Label></div>
+              </RadioGroup>
+            </div>
+            <div><Label>Keterangan</Label><Textarea value={penjualKeterangan} onChange={(e) => setPenjualKeterangan(e.target.value)} /></div>
+            <Button className="w-full" onClick={() => penjualPayMutation.mutate()} disabled={penjualPayMutation.isPending || !penjualJumlah}>
+              {penjualPayMutation.isPending ? "Menyimpan..." : "Simpan Pembayaran"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Iuran Payment Dialog */}
       <Dialog open={iuranDialogOpen} onOpenChange={setIuranDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Catat Pembayaran Iuran</DialogTitle></DialogHeader>

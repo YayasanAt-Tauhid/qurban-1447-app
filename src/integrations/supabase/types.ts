@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      _keep_alive_log: {
+        Row: {
+          id: number
+          pinged_at: string | null
+          source: string | null
+        }
+        Insert: {
+          id?: number
+          pinged_at?: string | null
+          source?: string | null
+        }
+        Update: {
+          id?: number
+          pinged_at?: string | null
+          source?: string | null
+        }
+        Relationships: []
+      }
       catatan_lapangan: {
         Row: {
           catatan: string
