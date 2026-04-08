@@ -874,6 +874,9 @@ const KeuanganPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Iuran Payment Dialog */}
+      <Dialog open={iuranDialogOpen} onOpenChange={setIuranDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Catat Pembayaran Iuran</DialogTitle></DialogHeader>
           <div className="space-y-3">
