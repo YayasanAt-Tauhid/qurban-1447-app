@@ -390,6 +390,7 @@ const KeuanganPage = () => {
         <TabsList>
           <TabsTrigger value="buku-kas">Buku Kas</TabsTrigger>
           <TabsTrigger value="iuran">Iuran Shohibul</TabsTrigger>
+          <TabsTrigger value="bayar-penjual">Bayar Penjual</TabsTrigger>
         </TabsList>
 
         <TabsContent value="buku-kas" className="space-y-6">
