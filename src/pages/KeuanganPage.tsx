@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { formatRupiah, formatTanggal, SUMBER_HEWAN_LABEL, type SumberHewan } from "@/lib/qurban-utils";
-import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard, FileUp, Banknote, Landmark, Edit2, Trash2 } from "lucide-react";
+import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard, FileUp, Banknote, Landmark, Edit2, Trash2, Store } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import ImportExcelDialog from "@/components/ImportExcelDialog";
