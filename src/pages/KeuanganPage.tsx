@@ -171,7 +171,7 @@ const KeuanganPage = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
-
+  const getPaymentTotal = (shohibulId: string) => {
     if (!iuranPayments) return 0;
     return iuranPayments
       .filter((p) => p.keterangan?.includes(shohibulId))
