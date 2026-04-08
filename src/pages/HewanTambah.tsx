@@ -41,7 +41,7 @@ const HewanTambah = () => {
     form.jenis_hewan === "kambing" ? "individu" : form.tipe_kepemilikan;
 
   const isIndividu = tipeEfektif === "individu";
-  const isBawaSendiri = isIndividu && form.sumber_hewan === "bawa_sendiri";
+  const isBawaSendiri = form.sumber_hewan === "bawa_sendiri";
 
   // Bawa sendiri: harga hewan = 0, shohibul cukup bayar operasional
   const harga = isBawaSendiri ? 0 : (parseInt(form.harga) || 0);
@@ -57,7 +57,7 @@ const HewanTambah = () => {
         nomor_urut: form.nomor_urut,
         jenis_hewan: form.jenis_hewan,
         tipe_kepemilikan: tipeEfektif,
-        sumber_hewan: isIndividu ? form.sumber_hewan : null,
+        sumber_hewan: form.sumber_hewan,
         jenis_kelamin: form.jenis_kelamin,
         ras: form.ras || null,
         nama_penjual: !isBawaSendiri ? (form.nama_penjual || null) : null,
@@ -137,21 +137,19 @@ const HewanTambah = () => {
                 )}
               </div>
 
-              {isIndividu && (
-                <div className="space-y-2">
-                  <Label>Sumber Hewan *</Label>
-                  <Select value={form.sumber_hewan} onValueChange={(v) => update("sumber_hewan", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="beli_panitia">🛒 Beli lewat panitia</SelectItem>
-                      <SelectItem value="bawa_sendiri">🏠 Bawa sendiri</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {isBawaSendiri && (
-                    <p className="text-xs text-muted-foreground">Hanya bayar biaya operasional panitia</p>
-                  )}
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label>Sumber Hewan *</Label>
+                <Select value={form.sumber_hewan} onValueChange={(v) => update("sumber_hewan", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="beli_panitia">🛒 Beli lewat panitia</SelectItem>
+                    <SelectItem value="bawa_sendiri">🏠 Bawa sendiri</SelectItem>
+                  </SelectContent>
+                </Select>
+                {isBawaSendiri && (
+                  <p className="text-xs text-muted-foreground">Hanya bayar biaya operasional panitia</p>
+                )}
+              </div>
 
               <div className="space-y-2">
                 <Label>Jenis Kelamin</Label>
