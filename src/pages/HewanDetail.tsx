@@ -78,7 +78,7 @@ const HewanDetail = () => {
               .delete()
               .eq("hewan_id", id!)
               .eq("shohibul_id", shohibulId)
-              .eq("bagian", slot);
+              .eq("bagian", slot as any);
           }
         }
       } else {
@@ -103,8 +103,8 @@ const HewanDetail = () => {
             // Individu: langsung dapat SEMUA slot dari kategori ini (misal tulang_kaki → 4 slot sekaligus)
             for (const slot of kategori.slots) {
               await supabase.from("pilihan_bagian").insert({
-                hewan_id: id!, shohibul_id: shohibulId, bagian: slot,
-              });
+                hewan_id: id!, shohibul_id: shohibulId, bagian: slot as any,
+              } as any);
             }
           } else {
             // Kolektif: ambil slot berikutnya yang belum ada pemiliknya
@@ -112,13 +112,13 @@ const HewanDetail = () => {
               .from("pilihan_bagian")
               .select("bagian")
               .eq("hewan_id", id!)
-              .in("bagian", kategori.slots);
+              .in("bagian", kategori.slots as any);
             const slotTerpakai = new Set((sudahPilih ?? []).map(p => p.bagian));
-            const slotKosong = kategori.slots.find(s => !slotTerpakai.has(s));
+            const slotKosong = kategori.slots.find(s => !slotTerpakai.has(s as any));
             if (slotKosong) {
               await supabase.from("pilihan_bagian").insert({
-                hewan_id: id!, shohibul_id: shohibulId, bagian: slotKosong,
-              });
+                hewan_id: id!, shohibul_id: shohibulId, bagian: slotKosong as any,
+              } as any);
             }
           }
         }

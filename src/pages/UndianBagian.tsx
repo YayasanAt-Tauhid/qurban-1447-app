@@ -234,11 +234,11 @@ const UndianBagian = () => {
       const existing = (statusList as StatusRow[] | undefined)?.find(s => s.bagian === slotId);
       if (existing) {
         await supabase.from("status_bagian")
-          .update({ status, pemenang_id: pemenangId ?? null, updated_at: new Date().toISOString() })
+           .update({ status: status as any, pemenang_id: pemenangId ?? null, updated_at: new Date().toISOString() })
           .eq("id", existing.id);
       } else {
         await supabase.from("status_bagian")
-          .insert({ hewan_id: hewanId!, bagian: slotId, status, pemenang_id: pemenangId ?? null });
+          .insert({ hewan_id: hewanId!, bagian: slotId as any, status: status as any, pemenang_id: pemenangId ?? null } as any);
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["status-bagian", hewanId] }),
@@ -344,11 +344,11 @@ const UndianBagian = () => {
     // Simpan log undian (satu log per kategori)
     await supabase.from("log_undian").insert({
       hewan_id: hewanId!,
-      bagian: kategori.id,
+      bagian: kategori.id as any,
       peserta: requests.map(r => r.shohibul_qurban_id),
-      pemenang_id: pemenang[0].shohibul_qurban_id, // pemenang utama (slot 1)
+      pemenang_id: pemenang[0].shohibul_qurban_id,
       seed,
-    });
+    } as any);
 
     // Tetapkan setiap pemenang ke slotnya
     for (let i = 0; i < pemenang.length; i++) {
