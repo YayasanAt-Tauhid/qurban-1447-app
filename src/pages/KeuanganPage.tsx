@@ -98,7 +98,80 @@ const KeuanganPage = () => {
     },
   });
 
-  const getPaymentTotal = (shohibulId: string) => {
+  // Hewan list for Bayar Penjual tab
+  const { data: hewanList, isLoading: loadingHewan } = useQuery({
+    queryKey: ["hewan-penjual"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("hewan_qurban")
+        .select("id, nomor_urut, jenis_hewan, sumber_hewan, nama_penjual, hp_penjual, harga")
+        .order("nomor_urut");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Payments to sellers from kas
+  const { data: penjualPayments } = useQuery({
+    queryKey: ["penjual-payments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("kas")
+        .select("*")
+        .eq("jenis", "keluar")
+        .eq("kategori", "bayar penjual");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const getPenjualPaymentTotal = (hewanId: string) => {
+    if (!penjualPayments) return 0;
+    return penjualPayments
+      .filter((p) => p.keterangan?.includes(hewanId))
+      .reduce((sum, p) => sum + Number(p.jumlah), 0);
+  };
+
+  const getPenjualPaymentStatus = (hewanId: string, harga: number) => {
+    const total = getPenjualPaymentTotal(hewanId);
+    if (total <= 0) return "belum";
+    if (total >= harga) return "lunas";
+    return "dp";
+  };
+
+  const openPenjualPayDialog = (h: any) => {
+    setPenjualHewanId(h.id);
+    setPenjualNama(h.nama_penjual ?? "");
+    setPenjualHp(h.hp_penjual ?? "");
+    setPenjualHarga(Number(h.harga ?? 0));
+    setPenjualJumlah("");
+    setPenjualMetode("tunai");
+    setPenjualKeterangan(`Bayar penjual hewan ${h.nomor_urut} (${h.jenis_hewan}) - ${h.nama_penjual ?? ""}`);
+    setPenjualDialogOpen(true);
+  };
+
+  const penjualPayMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("kas").insert({
+        tanggal: new Date().toISOString().split("T")[0],
+        jenis: "keluar" as const,
+        metode: penjualMetode,
+        kategori: "bayar penjual",
+        keterangan: `${penjualKeterangan} [${penjualHewanId}]`,
+        jumlah: parseInt(penjualJumlah) || 0,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kas-list"] });
+      queryClient.invalidateQueries({ queryKey: ["penjual-payments"] });
+      setPenjualDialogOpen(false);
+      toast.success("Pembayaran penjual berhasil dicatat");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+
     if (!iuranPayments) return 0;
     return iuranPayments
       .filter((p) => p.keterangan?.includes(shohibulId))
