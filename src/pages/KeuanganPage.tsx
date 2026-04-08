@@ -350,6 +350,28 @@ const KeuanganPage = () => {
     return { lunas, dp, belum, total };
   })();
 
+  // Penjual summary
+  const penjualSummary = (() => {
+    if (!hewanList) return { totalBeliPanitia: 0, lunas: 0, belumLunas: 0, totalNilai: 0 };
+    const beliPanitia = hewanList.filter((h) => h.sumber_hewan === "beli_panitia");
+    let lunas = 0, belumLunas = 0, totalNilai = 0;
+    beliPanitia.forEach((h) => {
+      const harga = Number(h.harga ?? 0);
+      totalNilai += harga;
+      const status = getPenjualPaymentStatus(h.id, harga);
+      if (status === "lunas") lunas++;
+      else belumLunas++;
+    });
+    return { totalBeliPanitia: beliPanitia.length, lunas, belumLunas, totalNilai };
+  })();
+
+  const filteredHewan = hewanList?.filter((h) => {
+    if (filterPenjual === "semua") return true;
+    if (filterPenjual === "bawa_sendiri") return h.sumber_hewan === "bawa_sendiri";
+    const harga = Number(h.harga ?? 0);
+    return h.sumber_hewan === "beli_panitia" && getPenjualPaymentStatus(h.id, harga) === filterPenjual;
+  });
+
   const filteredIuran = shohibulIuran?.filter((s) => {
     if (filterBayar === "semua") return true;
     const h = s.hewan_qurban as any;
