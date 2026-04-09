@@ -10,10 +10,101 @@ import { Link } from "react-router-dom";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import ImportExcelDialog from "@/components/ImportExcelDialog";
 
+/* ─── sub-tabel yang bisa di-reuse per tab ─── */
+const ShohibulTable = ({
+  rows,
+  isAdmin,
+  onToggleAkad,
+  onToggleStatus,
+}: {
+  rows: any[];
+  isAdmin: () => boolean;
+  onToggleAkad: (id: string, current: boolean) => void;
+  onToggleStatus: (id: string, current: string) => void;
+}) => (
+  <div className="table-container">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-12">#</TableHead>
+          <TableHead>Nama</TableHead>
+          <TableHead>Hewan</TableHead>
+          <TableHead>No. WA</TableHead>
+          <TableHead>Tipe</TableHead>
+          <TableHead>Akad</TableHead>
+          <TableHead>Status</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.length === 0 && (
+          <TableRow>
+            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+              Belum ada data shohibul
+            </TableCell>
+          </TableRow>
+        )}
+        {rows.map((s, idx) => (
+          <TableRow key={s.id}>
+            <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+            <TableCell>
+              <Link to={`/shohibul/${s.id}`} className="font-medium text-primary hover:underline">
+                {s.nama}
+              </Link>
+            </TableCell>
+            <TableCell>
+              {(s.hewan_qurban as any)?.nomor_urut ?? "-"}{" "}
+              <Badge variant="outline" className="text-xs capitalize">
+                {(s.hewan_qurban as any)?.jenis_hewan}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              {s.no_wa ? (
+                <a
+                  href={`https://wa.me/${s.no_wa.replace(/^0/, "62").replace(/[^0-9]/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline text-sm"
+                >
+                  {s.no_wa}
+                </a>
+              ) : "-"}
+            </TableCell>
+            <TableCell className="capitalize">{s.tipe_kepemilikan}</TableCell>
+            <TableCell>
+              <button
+                onClick={() => isAdmin() && onToggleAkad(s.id, !!s.akad_dilakukan)}
+                className={`flex items-center justify-center transition-colors ${isAdmin() ? "cursor-pointer hover:opacity-70" : "cursor-default"}`}
+                title={s.akad_dilakukan ? "Akad sudah dilakukan" : "Akad belum dilakukan"}
+              >
+                {s.akad_dilakukan
+                  ? <CheckCircle2 className="h-5 w-5 text-success" />
+                  : <Circle className="h-5 w-5 text-muted-foreground/40" />}
+              </button>
+            </TableCell>
+            <TableCell>
+              <button
+                onClick={() => isAdmin() && onToggleStatus(s.id, s.status_checklist_panitia ?? "pending")}
+                className={`flex items-center justify-center transition-colors ${isAdmin() ? "cursor-pointer hover:opacity-70" : "cursor-default"}`}
+                title={s.status_checklist_panitia === "selesai" ? "Selesai" : "Belum selesai"}
+              >
+                {s.status_checklist_panitia === "selesai"
+                  ? <CheckCircle2 className="h-5 w-5 text-success" />
+                  : <Circle className="h-5 w-5 text-muted-foreground/40" />}
+              </button>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+);
+
+/* ─── Halaman utama ─── */
 const ShohibulList = () => {
   const [search, setSearch] = useState("");
   const [showImport, setShowImport] = useState(false);
@@ -49,9 +140,7 @@ const ShohibulList = () => {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shohibul-list"] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["shohibul-list"] }),
     onError: (err: any) => toast.error(err.message),
   });
 
@@ -64,20 +153,19 @@ const ShohibulList = () => {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shohibul-list"] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["shohibul-list"] }),
     onError: (err: any) => toast.error(err.message),
   });
 
   const handleImport = async (rows: Record<string, any>[]) => {
     const hewanMap = new Map(hewanList?.map((h) => [h.nomor_urut.toLowerCase(), h.id]) ?? []);
-
     const inserts = rows.map((r) => {
       const tipe = ["kolektif", "individu"].includes(r.tipe_kepemilikan?.toLowerCase?.().trim())
         ? r.tipe_kepemilikan.toLowerCase().trim() as "kolektif" | "individu"
         : "kolektif" as const;
-      const hewanId = r.nomor_urut_hewan ? hewanMap.get(String(r.nomor_urut_hewan).toLowerCase().trim()) ?? null : null;
+      const hewanId = r.nomor_urut_hewan
+        ? hewanMap.get(String(r.nomor_urut_hewan).toLowerCase().trim()) ?? null
+        : null;
       return {
         nama: String(r.nama).trim(),
         no_wa: String(r.no_wa).trim(),
@@ -89,16 +177,24 @@ const ShohibulList = () => {
         status_checklist_panitia: "pending" as const,
       };
     });
-
     const { error } = await supabase.from("shohibul_qurban").insert(inserts);
     if (error) throw error;
     queryClient.invalidateQueries({ queryKey: ["shohibul-list"] });
     toast.success(`${inserts.length} shohibul berhasil diimport`);
   };
 
-  const filtered = data?.filter((s) =>
-    s.nama.toLowerCase().includes(search.toLowerCase())
-  );
+  // Filter berdasarkan search
+  const applySearch = (list: any[]) =>
+    list.filter((s) => s.nama.toLowerCase().includes(search.toLowerCase()));
+
+  const sapiRows   = applySearch(data?.filter((s) => (s.hewan_qurban as any)?.jenis_hewan === "sapi")    ?? []);
+  const kambingRows = applySearch(data?.filter((s) => (s.hewan_qurban as any)?.jenis_hewan === "kambing") ?? []);
+  const semuaRows  = applySearch(data ?? []);
+
+  const handleToggleAkad = (id: string, current: boolean) =>
+    toggleAkadMutation.mutate({ id, current });
+  const handleToggleStatus = (id: string, current: string) =>
+    toggleStatusMutation.mutate({ id, current });
 
   return (
     <div className="space-y-6">
@@ -121,7 +217,12 @@ const ShohibulList = () => {
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Cari nama..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Input
+          placeholder="Cari nama..."
+          className="pl-10"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {isLoading ? (
@@ -129,95 +230,52 @@ const ShohibulList = () => {
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
         </div>
       ) : (
-        <div className="table-container">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">#</TableHead>
-                <TableHead>Nama</TableHead>
-                <TableHead>Hewan</TableHead>
-                <TableHead>No. WA</TableHead>
-                <TableHead>Tipe</TableHead>
-                <TableHead>Akad</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    Belum ada data shohibul
-                  </TableCell>
-                </TableRow>
-              )}
-              {filtered?.map((s, idx) => (
-                <TableRow key={s.id}>
-                  <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                  <TableCell>
-                    <Link to={`/shohibul/${s.id}`} className="font-medium text-primary hover:underline">
-                      {s.nama}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    {(s.hewan_qurban as any)?.nomor_urut ?? "-"}{" "}
-                    <Badge variant="outline" className="text-xs capitalize">{(s.hewan_qurban as any)?.jenis_hewan}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {s.no_wa ? (
-                      <a href={`https://wa.me/${s.no_wa.replace(/^0/, "62").replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm">
-                        {s.no_wa}
-                      </a>
-                    ) : "-"}
-                  </TableCell>
-                  <TableCell className="capitalize">{s.tipe_kepemilikan}</TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => isAdmin() && toggleAkadMutation.mutate({ id: s.id, current: !!s.akad_dilakukan })}
-                      className={`flex items-center justify-center transition-colors ${isAdmin() ? "cursor-pointer hover:opacity-70" : "cursor-default"}`}
-                      title={s.akad_dilakukan ? "Akad sudah dilakukan" : "Akad belum dilakukan"}
-                    >
-                      {s.akad_dilakukan
-                        ? <CheckCircle2 className="h-5 w-5 text-success" />
-                        : <Circle className="h-5 w-5 text-muted-foreground/40" />}
-                    </button>
-                  </TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => isAdmin() && toggleStatusMutation.mutate({ id: s.id, current: s.status_checklist_panitia ?? "pending" })}
-                      className={`flex items-center justify-center transition-colors ${isAdmin() ? "cursor-pointer hover:opacity-70" : "cursor-default"}`}
-                      title={s.status_checklist_panitia === "selesai" ? "Selesai" : "Belum selesai"}
-                    >
-                      {s.status_checklist_panitia === "selesai"
-                        ? <CheckCircle2 className="h-5 w-5 text-success" />
-                        : <Circle className="h-5 w-5 text-muted-foreground/40" />}
-                    </button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <Tabs defaultValue="sapi">
+          <TabsList className="mb-4">
+            <TabsTrigger value="sapi" className="gap-2">
+              🐄 Sapi
+              <Badge variant="secondary" className="ml-1 text-xs">{sapiRows.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="kambing" className="gap-2">
+              🐐 Kambing
+              <Badge variant="secondary" className="ml-1 text-xs">{kambingRows.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="semua" className="gap-2">
+              Semua
+              <Badge variant="secondary" className="ml-1 text-xs">{semuaRows.length}</Badge>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="sapi">
+            <ShohibulTable
+              rows={sapiRows}
+              isAdmin={isAdmin}
+              onToggleAkad={handleToggleAkad}
+              onToggleStatus={handleToggleStatus}
+            />
+          </TabsContent>
+          <TabsContent value="kambing">
+            <ShohibulTable
+              rows={kambingRows}
+              isAdmin={isAdmin}
+              onToggleAkad={handleToggleAkad}
+              onToggleStatus={handleToggleStatus}
+            />
+          </TabsContent>
+          <TabsContent value="semua">
+            <ShohibulTable
+              rows={semuaRows}
+              isAdmin={isAdmin}
+              onToggleAkad={handleToggleAkad}
+              onToggleStatus={handleToggleStatus}
+            />
+          </TabsContent>
+        </Tabs>
       )}
 
-      {/* Import Excel Dialog */}
       <ImportExcelDialog
         open={showImport}
         onOpenChange={setShowImport}
-        title="Import Shohibul Qurban dari Excel"
-        columns={[
-          { key: "nama", label: "Nama", required: true },
-          { key: "no_wa", label: "No. WA", required: true },
-          { key: "alamat", label: "Alamat" },
-          { key: "tipe_kepemilikan", label: "Tipe Kepemilikan" },
-          { key: "nomor_urut_hewan", label: "Nomor Urut Hewan" },
-          { key: "panitia_pendaftar", label: "Panitia Pendaftar" },
-        ]}
-        templateData={[
-          { nama: "Ahmad", no_wa: "08123456789", alamat: "Jl. Merdeka 1", tipe_kepemilikan: "kolektif", nomor_urut_hewan: "Sapi 1", panitia_pendaftar: "" },
-          { nama: "Fatimah", no_wa: "08198765432", alamat: "Jl. Sudirman 5", tipe_kepemilikan: "individu", nomor_urut_hewan: "Kambing 1", panitia_pendaftar: "Pak Udin" },
-        ]}
-        templateFileName="template-shohibul.xlsx"
-        validateRow={(r) => !!r.nama && String(r.nama).trim() !== "" && !!r.no_wa && String(r.no_wa).trim() !== ""}
         onImport={handleImport}
       />
     </div>
