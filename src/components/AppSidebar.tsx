@@ -7,6 +7,7 @@ import {
   Ticket,
   Truck,
   FileText,
+  Tag,
   LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -34,6 +35,7 @@ const menuItems: { title: string; url: string; icon: any; allowedRoles?: RolePan
   { title: "Mustahiq & Kupon", url: "/mustahiq", icon: Ticket, allowedRoles: ["super_admin", "admin_kupon"] },
   { title: "Distribusi", url: "/distribusi", icon: Truck, allowedRoles: ["super_admin", "admin_kupon", "admin_hewan"] },
   { title: "Laporan", url: "/laporan", icon: FileText, allowedRoles: ["super_admin", "admin_keuangan"] },
+  { title: "Cetak Label", url: "/cetak-label", icon: Tag, allowedRoles: ["super_admin", "admin_pendaftaran", "admin_kupon"] },
 ];
 
 const formatRole = (role: string) =>
