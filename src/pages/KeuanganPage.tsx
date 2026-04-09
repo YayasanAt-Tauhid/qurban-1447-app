@@ -147,13 +147,14 @@ const KeuanganPage = () => {
     setPenjualJumlah("");
     setPenjualMetode("tunai");
     setPenjualKeterangan(`Bayar penjual hewan ${h.nomor_urut} (${h.jenis_hewan}) - ${h.nama_penjual ?? ""}`);
+    setFormTanggal(new Date().toISOString().split("T")[0]);
     setPenjualDialogOpen(true);
   };
 
   const penjualPayMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("kas").insert({
-        tanggal: new Date().toISOString().split("T")[0],
+        tanggal: formTanggal,
         jenis: "keluar" as const,
         metode: penjualMetode,
         kategori: "bayar penjual",
@@ -537,7 +538,7 @@ const KeuanganPage = () => {
                       </TableCell>
                       <TableCell className="capitalize">{k.metode}</TableCell>
                       <TableCell>{k.kategori ?? "-"}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{k.keterangan ?? "-"}</TableCell>
+                      <TableCell className="max-w-[200px] whitespace-normal break-words">{k.keterangan ?? "-"}</TableCell>
                       <TableCell className="text-right font-semibold">{formatRupiah(Number(k.jumlah))}</TableCell>
                       {isAdmin() && (
                         <TableCell>
@@ -844,9 +845,10 @@ const KeuanganPage = () => {
 
       {/* Penjual Payment Dialog */}
       <Dialog open={penjualDialogOpen} onOpenChange={setPenjualDialogOpen}>
-        <DialogContent>
+        <DialogContent className="flex flex-col max-h-[90dvh]">
           <DialogHeader><DialogTitle>Catat Pembayaran ke Penjual</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+            <div><Label>Tanggal</Label><Input type="date" value={formTanggal} onChange={(e) => setFormTanggal(e.target.value)} /></div>
             <div><Label>Nama Penjual</Label><Input value={penjualNama} readOnly className="bg-muted" /></div>
             <div><Label>No HP Penjual</Label><Input value={penjualHp || "-"} readOnly className="bg-muted" /></div>
             <div><Label>Harga Hewan (Total)</Label><Input value={formatRupiah(penjualHarga)} readOnly className="bg-muted font-semibold" /></div>
