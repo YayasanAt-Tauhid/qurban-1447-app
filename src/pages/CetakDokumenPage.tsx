@@ -199,7 +199,15 @@ const DokumenHewanPrint = ({ hewan, shohibulList, requestList, pilihanList }: Do
                 <td style={tdStyle}>{formatHP(r.noWa)}</td>
                 <td style={tdStyle}>{r.nama}</td>
                 {showRequestKhusus && <td style={tdStyle}>{r.requestKhusus || "-"}</td>}
-                <td style={tdStyle}>{r.keterangan || "-"}</td>
+                <td style={{ ...tdStyle, whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
+                  {r.keterangan ? (
+                    r.keterangan.split("\n").map((line, idx) => (
+                      <div key={idx}>{line}</div>
+                    ))
+                  ) : (
+                    "-"
+                  )}
+                </td>
               </tr>
             ))
           )}
