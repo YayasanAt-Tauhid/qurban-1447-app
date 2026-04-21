@@ -354,7 +354,7 @@ const CetakDokumenPage = () => {
         .from("shohibul_qurban")
         .select("id, nama, no_wa, catatan_pendaftaran")
         .eq("hewan_id", selectedHewanId)
-        .order("nama");
+        .order("created_at", { ascending: true });
       if (error) throw error;
       return data;
     },
