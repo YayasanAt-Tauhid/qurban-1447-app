@@ -42,7 +42,7 @@ const HewanDetail = () => {
   const { data: shohibulList } = useQuery({
     queryKey: ["shohibul-by-hewan", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("shohibul_qurban").select("*").eq("hewan_id", id!);
+      const { data, error } = await supabase.from("shohibul_qurban").select("*").eq("hewan_id", id!).order("created_at", { ascending: true });
       if (error) throw error;
       return data;
     },
