@@ -25,9 +25,10 @@ import ImportExcelDialog from "@/components/ImportExcelDialog";
 type StatusWarga   = "warga" | "bukan_warga" | null;
 type StatusJamaah  = "jamaah" | "bukan_jamaah" | null;
 type StatusPanitia = "panitia" | "bukan_panitia" | null;
-type StatusLainnya = "dhuafa" | "shohibul_qurban" | null;
-type ScanState     = "scanning" | "success" | "error";
-type MainTab       = "mustahiq" | "shohibul";
+type StatusLainnya   = "dhuafa" | "shohibul_qurban" | null;
+type StatusPengambilan = "belum_ambil" | "sudah_ambil";
+type ScanState       = "scanning" | "success" | "error";
+type MainTab         = "mustahiq" | "shohibul";
 
 interface MustahiqRow {
   id: string;
@@ -38,6 +39,7 @@ interface MustahiqRow {
   status_jamaah: StatusJamaah;
   status_panitia: StatusPanitia;
   status_lainnya: StatusLainnya;
+  status_kupon: StatusPengambilan;
   nama_penyalur: string | null;
   keterangan: string | null;
   created_at: string;
@@ -77,6 +79,7 @@ function rowToExcel(m: MustahiqRow, no: number) {
                     : m.status_panitia === "bukan_panitia" ? "Bukan Panitia" : "",
     "Status Lainnya": m.status_lainnya === "dhuafa" ? "Dhu'afa" : m.status_lainnya === "shohibul_qurban" ? "Shohibul Qurban" : "",
     "Penyalur": m.nama_penyalur ?? "",
+    "Status Pengambilan": m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil",
   };
 }
 
@@ -224,6 +227,16 @@ const MustahiqPage = () => {
     !search || m.nama?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const togglePengambilan = useMutation({
+    mutationFn: async (m: MustahiqRow) => {
+      const next: StatusPengambilan = m.status_kupon === "sudah_ambil" ? "belum_ambil" : "sudah_ambil";
+      const { error } = await supabase.from("mustahiq").update({ status_kupon: next }).eq("id", m.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["mustahiq"] }); toast.success("Status pengambilan diperbarui"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const openEdit = (m: MustahiqRow) => { setSelected(m); setForm({ nama: m.nama, status_warga: m.status_warga, status_jamaah: m.status_jamaah, status_panitia: m.status_panitia, status_lainnya: m.status_lainnya, nama_penyalur: m.nama_penyalur ?? "", keterangan: m.keterangan ?? "" }); setShowEdit(true); };
   const openKupon = (m: MustahiqRow) => { setSelected(m); setShowKupon(true); };
   const handleScanAgain = () => { setScanState("scanning"); setScanResult(null); setScanError(""); };
@@ -233,7 +246,7 @@ const MustahiqPage = () => {
   const handleExport = () => {
     const rows = filteredMustahiq.map((m, i) => rowToExcel(m, i + 1));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 4 }, { wch: 14 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 20 }];
+    ws["!cols"] = [{ wch: 4 }, { wch: 14 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 20 }, { wch: 16 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Mustahiq");
     XLSX.writeFile(wb, `mustahiq-${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -325,12 +338,13 @@ const MustahiqPage = () => {
                     <TableHead>Status Lainnya</TableHead>
                     <TableHead>Penyalur</TableHead>
                     <TableHead>No Kupon</TableHead>
+                    <TableHead>Pengambilan</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredMustahiq.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Belum ada data</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Belum ada data</TableCell></TableRow>
                   ) : filteredMustahiq.map((m, i) => (
                     <TableRow key={m.id}>
                       <TableCell className="text-xs">{i + 1}</TableCell>
@@ -341,6 +355,17 @@ const MustahiqPage = () => {
                       <TableCell>{m.status_lainnya === "dhuafa" ? <Badge variant="outline" className="text-xs">Dhu'afa</Badge> : m.status_lainnya === "shohibul_qurban" ? <Badge variant="outline" className="text-xs">Shohibul Qurban</Badge> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-xs">{m.nama_penyalur ?? "—"}</TableCell>
                       <TableCell><Badge variant="outline" className="font-mono text-xs">{m.nomor_kupon ?? "—"}</Badge></TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost" size="sm"
+                          className={m.status_kupon === "sudah_ambil" ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground"}
+                          onClick={() => togglePengambilan.mutate(m)}
+                        >
+                          {m.status_kupon === "sudah_ambil"
+                            ? <><CheckCircle2 className="h-4 w-4 mr-1" />Sudah Ambil</>
+                            : <><XCircle className="h-4 w-4 mr-1" />Belum Ambil</>}
+                        </Button>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openKupon(m)}><Eye className="h-4 w-4" /></Button>
