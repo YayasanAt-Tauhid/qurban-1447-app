@@ -25,7 +25,7 @@ import ImportExcelDialog from "@/components/ImportExcelDialog";
 type StatusWarga   = "warga" | "bukan_warga" | null;
 type StatusJamaah  = "jamaah" | "bukan_jamaah" | null;
 type StatusPanitia = "panitia" | "bukan_panitia" | null;
-type StatusLainnya = "dhuafa" | null;
+type StatusLainnya = "dhuafa" | "shohibul_qurban" | null;
 type ScanState     = "scanning" | "success" | "error";
 type MainTab       = "mustahiq" | "shohibul";
 
@@ -74,7 +74,7 @@ function rowToExcel(m: MustahiqRow, no: number) {
                     : m.status_jamaah  === "bukan_jamaah"  ? "Bukan Jama'ah" : "",
     "Status Panitia": m.status_panitia === "panitia"      ? "Panitia"
                     : m.status_panitia === "bukan_panitia" ? "Bukan Panitia" : "",
-    "Status Lainnya": m.status_lainnya === "dhuafa"       ? "Dhu'afa" : "",
+    "Status Lainnya": m.status_lainnya === "dhuafa" ? "Dhu'afa" : m.status_lainnya === "shohibul_qurban" ? "Shohibul Qurban" : "",
     "Penyalur": m.nama_penyalur ?? "",
   };
 }
@@ -93,7 +93,7 @@ function excelToForm(row: Record<string, any>): Omit<FormData, "keterangan"> | n
     status_warga:   sw.includes("bukan") ? "bukan_warga"   : sw ? "warga"   : null,
     status_jamaah:  sj.includes("bukan") ? "bukan_jamaah"  : sj ? "jamaah"  : null,
     status_panitia: sp.includes("bukan") ? "bukan_panitia" : sp ? "panitia" : null,
-    status_lainnya: sl.includes("dhu")   ? "dhuafa"                         : null,
+    status_lainnya: sl.includes("shohibul") ? "shohibul_qurban" : sl.includes("dhu") ? "dhuafa" : null,
     nama_penyalur:  String(row["Penyalur"] ?? "").trim(),
   };
 }
@@ -337,7 +337,7 @@ const MustahiqPage = () => {
                       <TableCell><StatusBadge value={m.status_warga} labels={["Warga", "Bukan Warga", ""]} /></TableCell>
                       <TableCell><StatusBadge value={m.status_jamaah} labels={["Jama'ah", "Bukan Jama'ah", ""]} /></TableCell>
                       <TableCell><StatusBadge value={m.status_panitia} labels={["Panitia", "Bukan Panitia", ""]} /></TableCell>
-                      <TableCell>{m.status_lainnya === "dhuafa" ? <Badge variant="outline" className="text-xs">Dhu'afa</Badge> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
+                      <TableCell>{m.status_lainnya === "dhuafa" ? <Badge variant="outline" className="text-xs">Dhu'afa</Badge> : m.status_lainnya === "shohibul_qurban" ? <Badge variant="outline" className="text-xs">Shohibul Qurban</Badge> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-xs">{m.nama_penyalur ?? "—"}</TableCell>
                       <TableCell><Badge variant="outline" className="font-mono text-xs">{m.nomor_kupon ?? "—"}</Badge></TableCell>
                       <TableCell className="text-right">
@@ -412,7 +412,7 @@ const MustahiqPage = () => {
               options={[{ value: "panitia", label: "Panitia" }, { value: "bukan_panitia", label: "Bukan Panitia" }]}
               onChange={(v) => setForm((p) => ({ ...p, status_panitia: v }))} />
             <SF label="Status Lainnya" value={form.status_lainnya}
-              options={[{ value: "dhuafa", label: "Dhu'afa" }]}
+              options={[{ value: "dhuafa", label: "Dhu'afa" }, { value: "shohibul_qurban", label: "Shohibul Qurban" }]}
               onChange={(v) => setForm((p) => ({ ...p, status_lainnya: v }))} />
             <div><Label>Nama Penyalur</Label>
               <Input value={form.nama_penyalur} onChange={(e) => setForm((p) => ({ ...p, nama_penyalur: e.target.value }))} />
@@ -448,7 +448,7 @@ const MustahiqPage = () => {
               options={[{ value: "panitia", label: "Panitia" }, { value: "bukan_panitia", label: "Bukan Panitia" }]}
               onChange={(v) => setForm((p) => ({ ...p, status_panitia: v }))} />
             <SF label="Status Lainnya" value={form.status_lainnya}
-              options={[{ value: "dhuafa", label: "Dhu'afa" }]}
+              options={[{ value: "dhuafa", label: "Dhu'afa" }, { value: "shohibul_qurban", label: "Shohibul Qurban" }]}
               onChange={(v) => setForm((p) => ({ ...p, status_lainnya: v }))} />
             <div><Label>Nama Penyalur</Label>
               <Input value={form.nama_penyalur} onChange={(e) => setForm((p) => ({ ...p, nama_penyalur: e.target.value }))} />
