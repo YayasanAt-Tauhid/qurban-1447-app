@@ -296,7 +296,7 @@ const MustahiqPage = () => {
     <div className="space-y-4 p-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold">Mustahiq & Shohibul Qurban</h1>
+        <h1 className="text-2xl font-bold">Pengambilan Daging</h1>
         <div className="flex gap-2 flex-wrap">
           {mainTab === "mustahiq" && <>
             <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><FileUp className="mr-1 h-4 w-4" />Import</Button>
@@ -318,7 +318,7 @@ const MustahiqPage = () => {
       {/* Main Tabs: Mustahiq | Shohibul Qurban */}
       <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as MainTab)}>
         <TabsList>
-          <TabsTrigger value="mustahiq">Mustahiq ({mustahiqList.length})</TabsTrigger>
+          <TabsTrigger value="mustahiq">Mustahiq ({mustahiqList.filter(m => m.status_lainnya !== "shohibul_qurban").length})</TabsTrigger>
           <TabsTrigger value="shohibul">Shohibul Qurban ({shohibulList.length})</TabsTrigger>
         </TabsList>
 

@@ -33,7 +33,7 @@ const menuItems: { title: string; url: string; icon: any; allowedRoles?: RolePan
   { title: "Shohibul Qurban", url: "/shohibul", icon: Users },
   { title: "Panitia", url: "/panitia", icon: UserCheck, allowedRoles: ["super_admin"] },
   { title: "Keuangan", url: "/keuangan", icon: Wallet, allowedRoles: ["super_admin", "admin_keuangan"] },
-  { title: "Mustahiq & Kupon", url: "/mustahiq", icon: Ticket, allowedRoles: ["super_admin", "admin_kupon"] },
+  { title: "Pengambilan Daging", url: "/pengambilan", icon: Ticket, allowedRoles: ["super_admin", "admin_kupon"] },
   { title: "Distribusi", url: "/distribusi", icon: Truck, allowedRoles: ["super_admin", "admin_kupon", "admin_hewan"] },
   { title: "Laporan", url: "/laporan", icon: FileText, allowedRoles: ["super_admin", "admin_keuangan"] },
   { title: "Cetak Label", url: "/cetak-label", icon: Tag, allowedRoles: ["super_admin", "admin_pendaftaran", "admin_kupon"] },
