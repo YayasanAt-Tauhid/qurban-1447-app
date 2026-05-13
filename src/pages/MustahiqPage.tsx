@@ -303,7 +303,9 @@ const MustahiqPage = () => {
             <Button variant="outline" size="sm" onClick={handleExport}><FileDown className="mr-1 h-4 w-4" />Export</Button>
           </>}
           <Button variant="outline" size="sm" onClick={() => setShowScan(true)}><ScanLine className="mr-1 h-4 w-4" />Scan Kupon</Button>
-          <Button size="sm" onClick={() => { setForm(mainTab === "shohibul" ? { ...EMPTY_FORM, status_lainnya: "shohibul_qurban" } : EMPTY_FORM); setShowAdd(true); }}><Plus className="mr-1 h-4 w-4" />Tambah</Button>
+          {mainTab === "mustahiq" && (
+            <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setShowAdd(true); }}><Plus className="mr-1 h-4 w-4" />Tambah</Button>
+          )}
         </div>
       </div>
 
@@ -398,12 +400,11 @@ const MustahiqPage = () => {
                     <TableHead>Penyalur</TableHead>
                     <TableHead>No Kupon</TableHead>
                     <TableHead>Pengambilan</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredShohibul.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Belum ada data</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Belum ada data</TableCell></TableRow>
                   ) : filteredShohibul.map((m, i) => (
                     <TableRow key={m.id}>
                       <TableCell className="text-xs">{i + 1}</TableCell>
@@ -424,13 +425,6 @@ const MustahiqPage = () => {
                             ? <><CheckCircle2 className="h-4 w-4 mr-1" />Sudah Ambil</>
                             : <><XCircle className="h-4 w-4 mr-1" />Belum Ambil</>}
                         </Button>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => openKupon(m)}><Eye className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(m)}><Printer className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => { if (confirm("Hapus data ini?")) deleteMutation.mutate(m.id); }}><XCircle className="h-4 w-4" /></Button>
-                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
