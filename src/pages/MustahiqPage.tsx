@@ -82,7 +82,7 @@ const MustahiqPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shohibul_qurban")
-        .select("id, nama, no_wa, tipe_kepemilikan, hewan_id, hewan_qurban(jenis_hewan, nama_hewan)")
+        .select("id, nama, no_wa, tipe_kepemilikan, hewan_id, hewan_qurban(jenis_hewan, nomor_urut)")
         .order("created_at");
       if (error) throw error;
       return data;
@@ -397,7 +397,7 @@ const MustahiqPage = () => {
                 </TableCell>
                 <TableCell className="font-medium">{s.nama}</TableCell>
                 <TableCell className="text-sm text-muted-foreground capitalize">
-                  {(s.hewan_qurban as any)?.nama_hewan ?? jenis}
+                  {(s.hewan_qurban as any)?.nomor_urut ? `${jenis} - ${(s.hewan_qurban as any).nomor_urut}` : jenis}
                 </TableCell>
                 <TableCell className="capitalize text-sm">{s.tipe_kepemilikan}</TableCell>
                 <TableCell>
