@@ -77,7 +77,7 @@ function rowToExcel(m: MustahiqRow, no: number) {
                     : m.status_jamaah  === "bukan_jamaah"  ? "Bukan Jama'ah" : "",
     "Status Panitia": m.status_panitia === "panitia"      ? "Panitia"
                     : m.status_panitia === "bukan_panitia" ? "Bukan Panitia" : "",
-    "Status Lainnya": m.status_lainnya === "dhuafa" ? "Dhu'afa" : m.status_lainnya === "shohibul_qurban" ? "Shohibul Qurban" : "",
+    "Status Lainnya": m.status_lainnya === "dhuafa" ? "Dhu'afa" : "",
     "Penyalur": m.nama_penyalur ?? "",
     "Status Pengambilan": m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil",
   };
@@ -97,7 +97,7 @@ function excelToForm(row: Record<string, any>): Omit<FormData, "keterangan"> | n
     status_warga:   sw.includes("bukan") ? "bukan_warga"   : sw ? "warga"   : null,
     status_jamaah:  sj.includes("bukan") ? "bukan_jamaah"  : sj ? "jamaah"  : null,
     status_panitia: sp.includes("bukan") ? "bukan_panitia" : sp ? "panitia" : null,
-    status_lainnya: sl.includes("shohibul") ? "shohibul_qurban" : sl.includes("dhu") ? "dhuafa" : null,
+    status_lainnya: sl.includes("dhu") ? "dhuafa" : null,
     nama_penyalur:  String(row["Penyalur"] ?? "").trim(),
   };
 }
@@ -159,12 +159,12 @@ const MustahiqPage = () => {
   });
 
   const { data: shohibulList = [], isLoading: loadingShohibul } = useQuery({
-    queryKey: ["shohibul_qurban"],
+    queryKey: ["mustahiq_shohibul"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("shohibul_qurban").select("*, hewan_qurban(nomor_urut, jenis_hewan)").order("created_at", { ascending: true });
+        .from("mustahiq").select("*").eq("status_lainnya", "shohibul_qurban").order("created_at", { ascending: true });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as MustahiqRow[];
     },
   });
 
@@ -193,7 +193,7 @@ const MustahiqPage = () => {
       const { error } = await supabase.from("mustahiq").update(values).eq("id", selected!.id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["mustahiq"] }); toast.success("Data diperbarui"); setShowEdit(false); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["mustahiq"] }); queryClient.invalidateQueries({ queryKey: ["mustahiq_shohibul"] }); toast.success("Data diperbarui"); setShowEdit(false); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -202,7 +202,7 @@ const MustahiqPage = () => {
       const { error } = await supabase.from("mustahiq").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["mustahiq"] }); toast.success("Data dihapus"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["mustahiq"] }); queryClient.invalidateQueries({ queryKey: ["mustahiq_shohibul"] }); toast.success("Data dihapus"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -220,11 +220,12 @@ const MustahiqPage = () => {
 
   // ── Helpers ──
   const filteredMustahiq = mustahiqList.filter((m) =>
-    !search || m.nama?.toLowerCase().includes(search.toLowerCase()) || m.nomor_kupon?.toLowerCase().includes(search.toLowerCase())
+    m.status_lainnya !== "shohibul_qurban" &&
+    (!search || m.nama?.toLowerCase().includes(search.toLowerCase()) || m.nomor_kupon?.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const filteredShohibul = shohibulList.filter((m: any) =>
-    !search || m.nama?.toLowerCase().includes(search.toLowerCase())
+  const filteredShohibul = shohibulList.filter((m) =>
+    !search || m.nama?.toLowerCase().includes(search.toLowerCase()) || m.nomor_kupon?.toLowerCase().includes(search.toLowerCase())
   );
 
   const togglePengambilan = useMutation({
@@ -233,7 +234,7 @@ const MustahiqPage = () => {
       const { error } = await supabase.from("mustahiq").update({ status_kupon: next }).eq("id", m.id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["mustahiq"] }); toast.success("Status pengambilan diperbarui"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["mustahiq"] }); queryClient.invalidateQueries({ queryKey: ["mustahiq_shohibul"] }); toast.success("Status pengambilan diperbarui"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -302,9 +303,7 @@ const MustahiqPage = () => {
             <Button variant="outline" size="sm" onClick={handleExport}><FileDown className="mr-1 h-4 w-4" />Export</Button>
           </>}
           <Button variant="outline" size="sm" onClick={() => setShowScan(true)}><ScanLine className="mr-1 h-4 w-4" />Scan Kupon</Button>
-          {mainTab === "mustahiq" && (
-            <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setShowAdd(true); }}><Plus className="mr-1 h-4 w-4" />Tambah</Button>
-          )}
+          <Button size="sm" onClick={() => { setForm(mainTab === "shohibul" ? { ...EMPTY_FORM, status_lainnya: "shohibul_qurban" } : EMPTY_FORM); setShowAdd(true); }}><Plus className="mr-1 h-4 w-4" />Tambah</Button>
         </div>
       </div>
 
@@ -352,7 +351,7 @@ const MustahiqPage = () => {
                       <TableCell><StatusBadge value={m.status_warga} labels={["Warga", "Bukan Warga", ""]} /></TableCell>
                       <TableCell><StatusBadge value={m.status_jamaah} labels={["Jama'ah", "Bukan Jama'ah", ""]} /></TableCell>
                       <TableCell><StatusBadge value={m.status_panitia} labels={["Panitia", "Bukan Panitia", ""]} /></TableCell>
-                      <TableCell>{m.status_lainnya === "dhuafa" ? <Badge variant="outline" className="text-xs">Dhu'afa</Badge> : m.status_lainnya === "shohibul_qurban" ? <Badge variant="outline" className="text-xs">Shohibul Qurban</Badge> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
+                      <TableCell>{m.status_lainnya === "dhuafa" ? <Badge variant="outline" className="text-xs">Dhu'afa</Badge> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-xs">{m.nama_penyalur ?? "—"}</TableCell>
                       <TableCell><Badge variant="outline" className="font-mono text-xs">{m.nomor_kupon ?? "—"}</Badge></TableCell>
                       <TableCell>
@@ -391,26 +390,48 @@ const MustahiqPage = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">No</TableHead>
-                    <TableHead>Nama Shohibul Qurban</TableHead>
-                    <TableHead>Hewan</TableHead>
-                    <TableHead>Tipe</TableHead>
-                    <TableHead>Status Penyembelihan</TableHead>
-                    <TableHead>Akad</TableHead>
-                    <TableHead>Sumber</TableHead>
+                    <TableHead>Nama Penerima</TableHead>
+                    <TableHead>Status Warga</TableHead>
+                    <TableHead>Status Jama'ah</TableHead>
+                    <TableHead>Status Panitia</TableHead>
+                    <TableHead>Status Lainnya</TableHead>
+                    <TableHead>Penyalur</TableHead>
+                    <TableHead>No Kupon</TableHead>
+                    <TableHead>Pengambilan</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredShohibul.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Belum ada data</TableCell></TableRow>
-                  ) : filteredShohibul.map((m: any, i: number) => (
+                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Belum ada data</TableCell></TableRow>
+                  ) : filteredShohibul.map((m, i) => (
                     <TableRow key={m.id}>
                       <TableCell className="text-xs">{i + 1}</TableCell>
                       <TableCell className="font-medium">{m.nama}</TableCell>
-                      <TableCell className="text-xs">{m.hewan_qurban ? `${m.hewan_qurban.jenis_hewan} #${m.hewan_qurban.nomor_urut}` : "—"}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs capitalize">{m.tipe_kepemilikan}</Badge></TableCell>
-                      <TableCell><Badge variant={m.status_penyembelihan === "sendiri" ? "default" : "secondary"} className="text-xs capitalize">{m.status_penyembelihan ?? "—"}</Badge></TableCell>
-                      <TableCell>{m.akad_dilakukan ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-muted-foreground" />}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs capitalize">{m.sumber_pendaftaran ?? "—"}</Badge></TableCell>
+                      <TableCell><StatusBadge value={m.status_warga} labels={["Warga", "Bukan Warga", ""]} /></TableCell>
+                      <TableCell><StatusBadge value={m.status_jamaah} labels={["Jama'ah", "Bukan Jama'ah", ""]} /></TableCell>
+                      <TableCell><StatusBadge value={m.status_panitia} labels={["Panitia", "Bukan Panitia", ""]} /></TableCell>
+                      <TableCell><Badge variant="secondary" className="text-xs">Shohibul Qurban</Badge></TableCell>
+                      <TableCell className="text-xs">{m.nama_penyalur ?? "—"}</TableCell>
+                      <TableCell><Badge variant="outline" className="font-mono text-xs">{m.nomor_kupon ?? "—"}</Badge></TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost" size="sm"
+                          className={m.status_kupon === "sudah_ambil" ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground"}
+                          onClick={() => togglePengambilan.mutate(m)}
+                        >
+                          {m.status_kupon === "sudah_ambil"
+                            ? <><CheckCircle2 className="h-4 w-4 mr-1" />Sudah Ambil</>
+                            : <><XCircle className="h-4 w-4 mr-1" />Belum Ambil</>}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openKupon(m)}><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(m)}><Printer className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => { if (confirm("Hapus data ini?")) deleteMutation.mutate(m.id); }}><XCircle className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -423,7 +444,7 @@ const MustahiqPage = () => {
       {/* Dialog Tambah */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Tambah Mustahiq</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{form.status_lainnya === "shohibul_qurban" ? "Tambah Shohibul Qurban" : "Tambah Mustahiq"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Nama <span className="text-destructive">*</span></Label>
               <Input value={form.nama} onChange={(e) => setForm((p) => ({ ...p, nama: e.target.value }))} />
@@ -459,7 +480,7 @@ const MustahiqPage = () => {
       {/* Dialog Edit */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Edit Mustahiq</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{form.status_lainnya === "shohibul_qurban" ? "Edit Shohibul Qurban" : "Edit Mustahiq"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Nama <span className="text-destructive">*</span></Label>
               <Input value={form.nama} onChange={(e) => setForm((p) => ({ ...p, nama: e.target.value }))} />
