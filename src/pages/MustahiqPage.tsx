@@ -67,6 +67,7 @@ const EMPTY_FORM: FormData = {
 function rowToExcel(m: MustahiqRow, no: number) {
   return {
     "No": no,
+    "Nomor Kupon": m.nomor_kupon ?? "",
     "Nama Penerima": m.nama,
     "Status Warga":   m.status_warga   === "warga"        ? "Warga"
                     : m.status_warga   === "bukan_warga"   ? "Bukan Warga" : "",
@@ -232,7 +233,7 @@ const MustahiqPage = () => {
   const handleExport = () => {
     const rows = filteredMustahiq.map((m, i) => rowToExcel(m, i + 1));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 4 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 20 }];
+    ws["!cols"] = [{ wch: 4 }, { wch: 14 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Mustahiq");
     XLSX.writeFile(wb, `mustahiq-${new Date().toISOString().slice(0, 10)}.xlsx`);
