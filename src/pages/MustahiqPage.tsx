@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -32,12 +33,21 @@ type ScanState = "scanning" | "success" | "error";
 const KATEGORI_OPTIONS: KategoriMustahiq[] = ["dhuafa", "warga", "jamaah", "shohibul_qurban", "bagian_tidak_direquest", "lainnya"];
 const VALID_KATEGORI = new Set(KATEGORI_OPTIONS);
 
+// Generate nomor kupon shohibul: SS-001 (sapi), SK-001 (kambing)
+function generateNomorKuponShohibul(index: number, jenis: "sapi" | "kambing"): string {
+  const prefix = jenis === "sapi" ? "SS" : "SK";
+  return `${prefix}-${String(index).padStart(3, "0")}`;
+}
+
 const MustahiqPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [searchShohibul, setSearchShohibul] = useState("");
+  const [activeTab, setActiveTab] = useState("mustahiq");
   const [showAdd, setShowAdd] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showPreview, setShowPreview] = useState<string | null>(null);
+  const [showPreviewShohibul, setShowPreviewShohibul] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [formNama, setFormNama] = useState("");
   const [formKategori, setFormKategori] = useState<KategoriMustahiq>("warga");
@@ -53,6 +63,7 @@ const MustahiqPage = () => {
   const scannerRef = useRef<any>(null);
   const isScanProcessingRef = useRef(false);
 
+  // ── Query mustahiq ──────────────────────────────────────────────────────────
   const { data: mustahiqList, isLoading } = useQuery({
     queryKey: ["mustahiq-list"],
     queryFn: async () => {
@@ -65,6 +76,92 @@ const MustahiqPage = () => {
     },
   });
 
+  // ── Query shohibul dengan join hewan untuk tahu jenis_hewan ───────────────
+  const { data: shohibulList, isLoading: isLoadingShohibul } = useQuery({
+    queryKey: ["shohibul-kupon-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shohibul_qurban")
+        .select("id, nama, no_wa, tipe_kepemilikan, hewan_id, hewan_qurban(jenis_hewan, nama_hewan)")
+        .order("created_at");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // ── Query status kupon shohibul (disimpan di tabel mustahiq dgn ref id shohibul) ──
+  const { data: kuponShohibulMap } = useQuery({
+    queryKey: ["kupon-shohibul-map"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("mustahiq")
+        .select("id, nama, nomor_kupon, qr_data, status_kupon, keterangan")
+        .eq("kategori", "shohibul_qurban");
+      if (error) throw error;
+      // keterangan digunakan sebagai shohibul_id referensi
+      const map: Record<string, typeof data[0]> = {};
+      data?.forEach((m) => { if (m.keterangan) map[m.keterangan] = m; });
+      return map;
+    },
+  });
+
+
+  // Derived: shohibul sapi & kambing
+  const shohibulSapi = shohibulList?.filter((s) => (s.hewan_qurban as any)?.jenis_hewan === "sapi") ?? [];
+  const shohibulKambing = shohibulList?.filter((s) => (s.hewan_qurban as any)?.jenis_hewan === "kambing") ?? [];
+
+  // ── Mutation: generate/ensure kupon untuk satu shohibul ──────────────────
+  const ensureKuponShohibulMutation = useMutation({
+    mutationFn: async ({ shohibulId, nama, jenis, index }: {
+      shohibulId: string; nama: string; jenis: "sapi" | "kambing"; index: number;
+    }) => {
+      // Cek apakah sudah ada
+      const existing = kuponShohibulMap?.[shohibulId];
+      if (existing) return existing;
+      // Buat baru
+      const nomor = generateNomorKuponShohibul(index, jenis);
+      const { data, error } = await supabase.from("mustahiq").insert({
+        nama,
+        kategori: "shohibul_qurban" as KategoriMustahiq,
+        nomor_kupon: nomor,
+        qr_data: nomor,
+        keterangan: shohibulId, // referensi ke shohibul_qurban.id
+      }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kupon-shohibul-map"] });
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  // Generate kupon massal untuk semua shohibul yang belum punya kupon
+  const generateAllKuponShohibul = async () => {
+    if (!shohibulList) return;
+    let sapiIdx = (shohibulSapi.length > 0 ? Object.values(kuponShohibulMap ?? {}).filter(k => k.nomor_kupon?.startsWith("SS")).length : 0);
+    let kambingIdx = (shohibulKambing.length > 0 ? Object.values(kuponShohibulMap ?? {}).filter(k => k.nomor_kupon?.startsWith("SK")).length : 0);
+    let generated = 0;
+    for (const s of shohibulSapi) {
+      if (!kuponShohibulMap?.[s.id]) {
+        sapiIdx++;
+        await ensureKuponShohibulMutation.mutateAsync({ shohibulId: s.id, nama: s.nama, jenis: "sapi", index: sapiIdx });
+        generated++;
+      }
+    }
+    for (const s of shohibulKambing) {
+      if (!kuponShohibulMap?.[s.id]) {
+        kambingIdx++;
+        await ensureKuponShohibulMutation.mutateAsync({ shohibulId: s.id, nama: s.nama, jenis: "kambing", index: kambingIdx });
+        generated++;
+      }
+    }
+    if (generated > 0) toast.success(`${generated} kupon shohibul berhasil digenerate`);
+    else toast.info("Semua shohibul sudah punya kupon");
+  };
+
+
+  // ── Mutations mustahiq ────────────────────────────────────────────────────
   const addMutation = useMutation({
     mutationFn: async () => {
       const nextIndex = (mustahiqList?.length ?? 0) + 1;
@@ -82,9 +179,7 @@ const MustahiqPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["mustahiq-list"] });
       setShowAdd(false);
-      setFormNama("");
-      setFormKeterangan("");
-      setFormPenyalur("");
+      setFormNama(""); setFormKeterangan(""); setFormPenyalur("");
       toast.success("Mustahiq berhasil ditambahkan");
     },
     onError: (err: any) => toast.error(err.message),
@@ -99,43 +194,36 @@ const MustahiqPage = () => {
         .single();
       if (!found) throw new Error("Kupon tidak ditemukan");
       if (found.status_kupon === "sudah_ambil") throw new Error(`${found.nama} sudah mengambil kupon ini`);
-      const { error } = await supabase
-        .from("mustahiq")
-        .update({ status_kupon: "sudah_ambil" })
-        .eq("id", found.id);
+      const { error } = await supabase.from("mustahiq").update({ status_kupon: "sudah_ambil" }).eq("id", found.id);
       if (error) throw error;
       return { nama: found.nama, nomor_kupon: found.nomor_kupon ?? "", kategori: found.kategori };
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["mustahiq-list"], refetchType: "active" });
-      setScanResult(result);
-      setScanState("success");
+      queryClient.invalidateQueries({ queryKey: ["mustahiq-list"] });
+      queryClient.invalidateQueries({ queryKey: ["kupon-shohibul-map"] });
+      setScanResult(result); setScanState("success");
     },
-    onError: (err: any) => {
-      setScanError(err.message);
-      setScanState("error");
-    },
+    onError: (err: any) => { setScanError(err.message); setScanState("error"); },
   });
 
   const toggleStatusMutation = useMutation({
     mutationFn: async ({ id, currentStatus }: { id: string; currentStatus: string }) => {
       const newStatus = currentStatus === "sudah_ambil" ? "belum_ambil" : "sudah_ambil";
-      const { error } = await supabase
-        .from("mustahiq")
-        .update({ status_kupon: newStatus as any })
-        .eq("id", id);
+      const { error } = await supabase.from("mustahiq").update({ status_kupon: newStatus as any }).eq("id", id);
       if (error) throw error;
       return newStatus;
     },
     onSuccess: (newStatus) => {
-      queryClient.invalidateQueries({ queryKey: ["mustahiq-list"], refetchType: "active" });
+      queryClient.invalidateQueries({ queryKey: ["mustahiq-list"] });
+      queryClient.invalidateQueries({ queryKey: ["kupon-shohibul-map"] });
       toast.success(newStatus === "sudah_ambil" ? "Ditandai sudah ambil" : "Status dikembalikan ke belum ambil");
     },
     onError: (err: any) => toast.error(err.message),
   });
 
-  const stoppingRef = useRef(false);
 
+  // ── Scanner ──────────────────────────────────────────────────────────────
+  const stoppingRef = useRef(false);
   const stopScanner = useCallback(async () => {
     if (stoppingRef.current) return;
     stoppingRef.current = true;
@@ -143,27 +231,17 @@ const MustahiqPage = () => {
       const inst = scannerRef.current;
       if (inst) {
         scannerRef.current = null;
-        try {
-          const state = inst.getState?.();
-          if (state === 2 /* SCANNING */) {
-            await inst.stop();
-          }
-        } catch (_) {}
+        try { if (inst.getState?.() === 2) await inst.stop(); } catch (_) {}
         try { inst.clear(); } catch (_) {}
       }
-    } finally {
-      stoppingRef.current = false;
-    }
+    } finally { stoppingRef.current = false; }
   }, []);
 
   const resetScanState = useCallback(() => {
     isScanProcessingRef.current = false;
-    setScanState("scanning");
-    setScanResult(null);
-    setScanError("");
+    setScanState("scanning"); setScanResult(null); setScanError("");
   }, []);
 
-  // QR Scanner
   useEffect(() => {
     if (!showScanner || scanState !== "scanning") return;
     let scanner: any;
@@ -175,117 +253,64 @@ const MustahiqPage = () => {
         async (decoded: string) => {
           if (isScanProcessingRef.current) return;
           isScanProcessingRef.current = true;
-
-          try {
-            const state = scanner.getState?.();
-            if (state === 2) await scanner.stop();
-          } catch {
-            isScanProcessingRef.current = false;
-            return;
-          }
-
-          if (scannerRef.current === scanner) {
-            scannerRef.current = null;
-          }
-
+          try { if (scanner.getState?.() === 2) await scanner.stop(); } catch { isScanProcessingRef.current = false; return; }
+          if (scannerRef.current === scanner) scannerRef.current = null;
           scanMutation.mutate(decoded);
         },
         () => {}
-      ).then(() => {
-        scannerRef.current = scanner;
-      }).catch(() => {
-        isScanProcessingRef.current = false;
-        toast.error("Tidak bisa mengakses kamera");
-      });
+      ).then(() => { scannerRef.current = scanner; })
+       .catch(() => { isScanProcessingRef.current = false; toast.error("Tidak bisa mengakses kamera"); });
     });
-    return () => {
-      stopScanner();
-    };
+    return () => { stopScanner(); };
   }, [showScanner, scanState, scanKey, stopScanner]);
 
-  const handleScanAgain = () => {
-    resetScanState();
-    setScanKey((k) => k + 1);
-  };
-
+  const handleScanAgain = () => { resetScanState(); setScanKey((k) => k + 1); };
   const handleCloseScanDialog = async (open: boolean) => {
-    if (!open) {
-      await stopScanner();
-      resetScanState();
-    }
+    if (!open) { await stopScanner(); resetScanState(); }
     setShowScanner(open);
   };
 
-  const cetakKupon = async () => {
-    if (!mustahiqList || mustahiqList.length === 0) return;
-
+  // ── Cetak PDF ─────────────────────────────────────────────────────────────
+  const cetakKuponList = async (list: { id: string; nomor_kupon: string | null }[], filename: string) => {
+    if (!list.length) return;
     const doc = new jsPDF({ unit: "mm", format: [210, 330], orientation: "portrait" });
-    const pageW = 190;
-    const marginX = 10;
-    const marginY = 10;
-    const gap = 5;
-    const pageH = 330;
-
-    let currentY = marginY;
-    let firstOnPage = true;
-
-    for (let i = 0; i < mustahiqList.length; i++) {
-      const el = document.getElementById(`kupon-${mustahiqList[i].id}`);
+    const pageW = 190; const marginX = 10; const marginY = 10; const gap = 5; const pageH = 330;
+    let currentY = marginY; let firstOnPage = true;
+    for (let i = 0; i < list.length; i++) {
+      const el = document.getElementById(`kupon-${list[i].id}`);
       if (!el) continue;
-
       el.style.display = "block";
       const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true, width: 420, height: 160 });
       el.style.display = "none";
-
       const imgData = canvas.toDataURL("image/png");
       const ratio = canvas.height / canvas.width;
       const imgH = pageW * ratio;
-
-      if (!firstOnPage && currentY + imgH > pageH - marginY) {
-        doc.addPage([210, 330]);
-        currentY = marginY;
-        firstOnPage = true;
-      }
-
+      if (!firstOnPage && currentY + imgH > pageH - marginY) { doc.addPage([210, 330]); currentY = marginY; firstOnPage = true; }
       doc.addImage(imgData, "PNG", marginX, currentY, pageW, imgH);
-      currentY += imgH + gap;
-      firstOnPage = false;
+      currentY += imgH + gap; firstOnPage = false;
     }
-
-    doc.save("kupon-mustahiq-1447H.pdf");
-    toast.success(`PDF kupon berhasil diunduh (${mustahiqList.length} kupon)`);
+    doc.save(filename);
+    toast.success(`PDF berhasil diunduh (${list.length} kupon)`);
   };
 
-  const unduhSingleKupon = async (mustahiq: typeof mustahiqList extends (infer T)[] | undefined ? T : never) => {
-    if (!mustahiq) return;
-    const el = document.getElementById(`kupon-${mustahiq.id}`);
+  const unduhSingleKupon = async (item: { id: string; nomor_kupon: string | null; nama?: string }) => {
+    const el = document.getElementById(`kupon-${item.id}`);
     if (!el) return;
     el.style.display = "block";
     const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", width: 420, height: 160 });
     el.style.display = "none";
-    const ratio = canvas.height / canvas.width;
-    const w = 95;
-    const h = w * ratio;
+    const w = 95; const h = w * (canvas.height / canvas.width);
     const doc = new jsPDF({ unit: "mm", format: [w, h] });
     doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, w, h);
-    doc.save(`kupon-${mustahiq.nomor_kupon ?? mustahiq.id}.pdf`);
+    doc.save(`kupon-${item.nomor_kupon ?? item.id}.pdf`);
   };
 
   const handleImport = async (rows: Record<string, any>[]) => {
     const currentCount = mustahiqList?.length ?? 0;
     const inserts = rows.map((r, i) => {
       const nomor = generateNomorKupon(currentCount + i + 1);
-      const kat = VALID_KATEGORI.has(r.kategori?.toLowerCase?.().trim())
-        ? r.kategori.toLowerCase().trim() as KategoriMustahiq
-        : "lainnya" as KategoriMustahiq;
-      return {
-        nama: String(r.nama).trim(),
-        kategori: kat,
-        nama_penyalur: r.nama_penyalur ? String(r.nama_penyalur).trim() : null,
-        keterangan: r.keterangan ? String(r.keterangan).trim() : null,
-        nomor_kupon: nomor,
-        qr_data: nomor,
-      };
+      const kat = VALID_KATEGORI.has(r.kategori?.toLowerCase?.().trim()) ? r.kategori.toLowerCase().trim() as KategoriMustahiq : "lainnya" as KategoriMustahiq;
+      return { nama: String(r.nama).trim(), kategori: kat, nama_penyalur: r.nama_penyalur ? String(r.nama_penyalur).trim() : null, keterangan: r.keterangan ? String(r.keterangan).trim() : null, nomor_kupon: nomor, qr_data: nomor };
     });
     const { error } = await supabase.from("mustahiq").insert(inserts);
     if (error) throw error;
@@ -293,22 +318,123 @@ const MustahiqPage = () => {
     toast.success(`${inserts.length} mustahiq berhasil diimport`);
   };
 
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const previewMustahiq = showPreview ? mustahiqList?.find((m) => m.id === showPreview) : null;
 
-  const filtered = mustahiqList?.filter((m) =>
-    m.nama.toLowerCase().includes(search.toLowerCase()) ||
-    (m.nomor_kupon ?? "").toLowerCase().includes(search.toLowerCase())
+  const filteredMustahiq = mustahiqList?.filter((m) =>
+    m.kategori !== "shohibul_qurban" &&
+    (m.nama.toLowerCase().includes(search.toLowerCase()) || (m.nomor_kupon ?? "").toLowerCase().includes(search.toLowerCase()))
   );
 
-  const sudahAmbil = mustahiqList?.filter((m) => m.status_kupon === "sudah_ambil").length ?? 0;
+  const sudahAmbil = mustahiqList?.filter((m) => m.kategori !== "shohibul_qurban" && m.status_kupon === "sudah_ambil").length ?? 0;
+  const totalMustahiq = mustahiqList?.filter((m) => m.kategori !== "shohibul_qurban").length ?? 0;
 
+  // Shohibul dengan info kupon, difilter search
+  const enrichShohibul = (list: typeof shohibulList) =>
+    (list ?? [])
+      .map((s) => ({ ...s, kupon: kuponShohibulMap?.[s.id] ?? null }))
+      .filter((s) => s.nama.toLowerCase().includes(searchShohibul.toLowerCase()) ||
+        (s.kupon?.nomor_kupon ?? "").toLowerCase().includes(searchShohibul.toLowerCase()));
+
+  const shohibulSapiEnriched = enrichShohibul(shohibulSapi);
+  const shohibulKambingEnriched = enrichShohibul(shohibulKambing);
+
+  const sudahAmbilShohibul = Object.values(kuponShohibulMap ?? {}).filter(k => k.status_kupon === "sudah_ambil").length;
+  const totalKuponShohibul = Object.values(kuponShohibulMap ?? {}).length;
+
+  const renderStatusBadge = (status: string, id: string, canEdit: boolean) => {
+    const isSudah = status === "sudah_ambil";
+    const badge = (
+      <Badge
+        variant={isSudah ? "default" : "outline"}
+        className={isSudah
+          ? "bg-success/10 text-success border-success/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-colors"
+          : "hover:bg-success/10 hover:text-success hover:border-success/20 transition-colors"}
+      >
+        {isSudah ? "Sudah Ambil" : "Belum Ambil"}
+      </Badge>
+    );
+    if (!canEdit) return badge;
+    return (
+      <button onClick={() => toggleStatusMutation.mutate({ id, currentStatus: status })} disabled={toggleStatusMutation.isPending} className="cursor-pointer">
+        {badge}
+      </button>
+    );
+  };
+
+
+  // ── Render tabel shohibul ─────────────────────────────────────────────────
+  const renderShohibulTable = (list: ReturnType<typeof enrichShohibul>, jenis: "sapi" | "kambing") => {
+    const canEdit = hasRole(["super_admin", "admin_kupon"]);
+    return (
+      <div className="table-container">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12">#</TableHead>
+              <TableHead>Kupon</TableHead>
+              <TableHead>Nama Shohibul</TableHead>
+              <TableHead>Hewan</TableHead>
+              <TableHead>Tipe</TableHead>
+              <TableHead>Status Kupon</TableHead>
+              <TableHead className="w-12">Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  Belum ada data shohibul {jenis}
+                </TableCell>
+              </TableRow>
+            )}
+            {list.map((s, idx) => (
+              <TableRow key={s.id}>
+                <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {s.kupon?.nomor_kupon ?? <span className="text-muted-foreground italic text-xs">Belum ada</span>}
+                </TableCell>
+                <TableCell className="font-medium">{s.nama}</TableCell>
+                <TableCell className="text-sm text-muted-foreground capitalize">
+                  {(s.hewan_qurban as any)?.nama_hewan ?? jenis}
+                </TableCell>
+                <TableCell className="capitalize text-sm">{s.tipe_kepemilikan}</TableCell>
+                <TableCell>
+                  {s.kupon
+                    ? renderStatusBadge(s.kupon.status_kupon, s.kupon.id, canEdit)
+                    : <Badge variant="outline" className="text-xs text-muted-foreground">Kupon belum digenerate</Badge>
+                  }
+                </TableCell>
+                <TableCell>
+                  {s.kupon && (
+                    <Button size="sm" variant="ghost" onClick={() => setShowPreviewShohibul(s.kupon!.id)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
+
+  const previewShohibulKupon = showPreviewShohibul
+    ? Object.values(kuponShohibulMap ?? {}).find((k) => k.id === showPreviewShohibul)
+    : null;
+
+  // ── JSX ───────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       <div className="page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="page-title">Mustahiq & Kupon</h1>
+          <h1 className="page-title">Mustahiq & Shohibul · Kupon</h1>
           <p className="page-subtitle">
-            Kelola penerima daging qurban · {sudahAmbil}/{mustahiqList?.length ?? 0} sudah ambil
+            Mustahiq: {sudahAmbil}/{totalMustahiq} sudah ambil ·
+            Shohibul: {sudahAmbilShohibul}/{totalKuponShohibul} sudah ambil
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -317,149 +443,174 @@ const MustahiqPage = () => {
               <ScanLine className="mr-2 h-4 w-4" /> Scan QR
             </Button>
           )}
-          <Button variant="outline" onClick={cetakKupon}>
-            <Printer className="mr-2 h-4 w-4" /> Cetak Semua Kupon (PDF)
-          </Button>
-          {isAdmin() && (
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="mustahiq">Mustahiq ({totalMustahiq})</TabsTrigger>
+          <TabsTrigger value="shohibul">Shohibul Qurban ({shohibulList?.length ?? 0})</TabsTrigger>
+        </TabsList>
+
+        {/* ── TAB MUSTAHIQ ─────────────────────────────────────────────── */}
+        <TabsContent value="mustahiq" className="space-y-4 mt-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+            <div className="relative max-w-sm w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Cari nama / kupon..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => cetakKuponList(filteredMustahiq ?? [], "kupon-mustahiq-1447H.pdf")}>
+                <Printer className="mr-2 h-4 w-4" /> Cetak PDF
+              </Button>
+              {isAdmin() && (
+                <>
+                  <Button variant="outline" onClick={() => setShowImport(true)}>
+                    <FileUp className="mr-2 h-4 w-4" /> Import Excel
+                  </Button>
+                  <Button onClick={() => setShowAdd(true)}>
+                    <Plus className="mr-2 h-4 w-4" /> Tambah
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="space-y-3">{[1,2,3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}</div>
+          ) : (
             <>
-              <Button variant="outline" onClick={() => setShowImport(true)}>
-                <FileUp className="mr-2 h-4 w-4" /> Import Excel
-              </Button>
-              <Button onClick={() => setShowAdd(true)}>
-                <Plus className="mr-2 h-4 w-4" /> Tambah
-              </Button>
+              <div className="table-container">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Kupon</TableHead>
+                      <TableHead>Nama</TableHead>
+                      <TableHead>Kategori</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="w-12">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredMustahiq?.length === 0 && (
+                      <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Belum ada data mustahiq</TableCell></TableRow>
+                    )}
+                    {filteredMustahiq?.map((m, idx) => (
+                      <TableRow key={m.id}>
+                        <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                        <TableCell className="font-mono text-xs">{m.nomor_kupon}</TableCell>
+                        <TableCell className="font-medium">{m.nama}</TableCell>
+                        <TableCell className="capitalize">{m.kategori?.replace(/_/g, " ")}</TableCell>
+                        <TableCell>{renderStatusBadge(m.status_kupon, m.id, hasRole(["super_admin", "admin_kupon"]))}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" onClick={() => setShowPreview(m.id)}><Eye className="h-4 w-4" /></Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {hasRole(["super_admin", "admin_kupon"]) && (
+                <p className="text-xs text-muted-foreground mt-2">💡 Klik status untuk toggle manual</p>
+              )}
             </>
           )}
-        </div>
-      </div>
+        </TabsContent>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Cari nama / kupon..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
-      </div>
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
-        </div>
-      ) : (
-        <>
-          <div className="table-container">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Kupon</TableHead>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Kategori</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-12">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered?.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      Belum ada data mustahiq
-                    </TableCell>
-                  </TableRow>
-                )}
-                {filtered?.map((m, idx) => (
-                  <TableRow key={m.id}>
-                    <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                    <TableCell className="font-mono text-xs">{m.nomor_kupon}</TableCell>
-                    <TableCell className="font-medium">{m.nama}</TableCell>
-                    <TableCell className="capitalize">{m.kategori}</TableCell>
-                    <TableCell>
-                      {hasRole(["super_admin", "admin_kupon"]) ? (
-                        <button
-                          onClick={() => toggleStatusMutation.mutate({ id: m.id, currentStatus: m.status_kupon })}
-                          disabled={toggleStatusMutation.isPending}
-                          title={m.status_kupon === "sudah_ambil" ? "Klik untuk batalkan" : "Klik untuk tandai sudah ambil"}
-                          className="cursor-pointer"
-                        >
-                          <Badge
-                            variant={m.status_kupon === "sudah_ambil" ? "default" : "outline"}
-                            className={
-                              m.status_kupon === "sudah_ambil"
-                                ? "bg-success/10 text-success border-success/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-colors"
-                                : "hover:bg-success/10 hover:text-success hover:border-success/20 transition-colors"
-                            }
-                          >
-                            {m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil"}
-                          </Badge>
-                        </button>
-                      ) : (
-                        <Badge
-                          variant={m.status_kupon === "sudah_ambil" ? "default" : "outline"}
-                          className={m.status_kupon === "sudah_ambil" ? "bg-success/10 text-success border-success/20" : ""}
-                        >
-                          {m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil"}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="ghost" onClick={() => setShowPreview(m.id)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        {/* ── TAB SHOHIBUL ─────────────────────────────────────────────── */}
+        <TabsContent value="shohibul" className="space-y-4 mt-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+            <div className="relative max-w-sm w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Cari nama / kupon..." className="pl-10" value={searchShohibul} onChange={(e) => setSearchShohibul(e.target.value)} />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {isAdmin() && (
+                <Button variant="outline" onClick={generateAllKuponShohibul} disabled={ensureKuponShohibulMutation.isPending}>
+                  <Plus className="mr-2 h-4 w-4" /> Generate Semua Kupon
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => {
+                const allKuponShohibul = Object.values(kuponShohibulMap ?? {});
+                cetakKuponList(allKuponShohibul, "kupon-shohibul-1447H.pdf");
+              }}>
+                <Printer className="mr-2 h-4 w-4" /> Cetak PDF Semua
+              </Button>
+            </div>
           </div>
-          {hasRole(["super_admin", "admin_kupon"]) && (
-            <p className="text-xs text-muted-foreground mt-2">
-              💡 Klik status pada tabel untuk toggle manual (jika kupon hilang)
-            </p>
-          )}
-        </>
-      )}
 
-      {/* Hidden kupon templates for PDF rendering */}
+          {isLoadingShohibul ? (
+            <div className="space-y-3">{[1,2,3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}</div>
+          ) : (
+            <Tabs defaultValue="sapi">
+              <TabsList>
+                <TabsTrigger value="sapi">🐄 Sapi ({shohibulSapi.length})</TabsTrigger>
+                <TabsTrigger value="kambing">🐐 Kambing ({shohibulKambing.length})</TabsTrigger>
+              </TabsList>
+              <TabsContent value="sapi" className="mt-4">
+                <div className="flex justify-end mb-2">
+                  <Button size="sm" variant="outline" onClick={() => {
+                    const kuponSapi = shohibulSapiEnriched.filter(s => s.kupon).map(s => s.kupon!);
+                    cetakKuponList(kuponSapi, "kupon-shohibul-sapi.pdf");
+                  }}>
+                    <Printer className="mr-2 h-3 w-3" /> Cetak Kupon Sapi
+                  </Button>
+                </div>
+                {renderShohibulTable(shohibulSapiEnriched, "sapi")}
+              </TabsContent>
+              <TabsContent value="kambing" className="mt-4">
+                <div className="flex justify-end mb-2">
+                  <Button size="sm" variant="outline" onClick={() => {
+                    const kuponKambing = shohibulKambingEnriched.filter(s => s.kupon).map(s => s.kupon!);
+                    cetakKuponList(kuponKambing, "kupon-shohibul-kambing.pdf");
+                  }}>
+                    <Printer className="mr-2 h-3 w-3" /> Cetak Kupon Kambing
+                  </Button>
+                </div>
+                {renderShohibulTable(shohibulKambingEnriched, "kambing")}
+              </TabsContent>
+            </Tabs>
+          )}
+        </TabsContent>
+      </Tabs>
+
+
+      {/* Hidden kupon templates untuk PDF — mustahiq */}
       <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
-        {mustahiqList?.map((m) => (
+        {mustahiqList?.filter(m => m.kategori !== "shohibul_qurban").map((m) => (
+          <KuponTemplate key={m.id} id={m.id} nomor_kupon={m.nomor_kupon} nama={m.nama} kategori={m.kategori} qr_data={m.qr_data} />
+        ))}
+        {/* Hidden kupon templates untuk PDF — shohibul */}
+        {Object.values(kuponShohibulMap ?? {}).map((k) => (
           <KuponTemplate
-            key={m.id}
-            id={m.id}
-            nomor_kupon={m.nomor_kupon}
-            nama={m.nama}
-            kategori={m.kategori}
-            qr_data={m.qr_data}
+            key={k.id} id={k.id} nomor_kupon={k.nomor_kupon} nama={k.nama}
+            kategori="shohibul_qurban" qr_data={k.qr_data}
+            jenis_hewan={k.nomor_kupon?.startsWith("SS") ? "sapi" : k.nomor_kupon?.startsWith("SK") ? "kambing" : null}
           />
         ))}
       </div>
 
-      {/* Add Dialog */}
+      {/* Dialog Tambah Mustahiq */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Tambah Mustahiq</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Tambah Mustahiq</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nama *</Label>
-              <Input value={formNama} onChange={(e) => setFormNama(e.target.value)} />
-            </div>
+            <div className="space-y-2"><Label>Nama *</Label><Input value={formNama} onChange={(e) => setFormNama(e.target.value)} /></div>
             <div className="space-y-2">
               <Label>Kategori</Label>
               <Select value={formKategori} onValueChange={(v) => setFormKategori(v as KategoriMustahiq)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {KATEGORI_OPTIONS.map((k) => (
+                  {KATEGORI_OPTIONS.filter(k => k !== "shohibul_qurban").map((k) => (
                     <SelectItem key={k} value={k} className="capitalize">{k.replace(/_/g, " ")}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Nama Penyalur</Label>
-              <Input value={formPenyalur} onChange={(e) => setFormPenyalur(e.target.value)} placeholder="Opsional" />
-            </div>
-            <div className="space-y-2">
-              <Label>Keterangan</Label>
-              <Input value={formKeterangan} onChange={(e) => setFormKeterangan(e.target.value)} />
-            </div>
+            <div className="space-y-2"><Label>Nama Penyalur</Label><Input value={formPenyalur} onChange={(e) => setFormPenyalur(e.target.value)} placeholder="Opsional" /></div>
+            <div className="space-y-2"><Label>Keterangan</Label><Input value={formKeterangan} onChange={(e) => setFormKeterangan(e.target.value)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAdd(false)}>Batal</Button>
@@ -470,12 +621,11 @@ const MustahiqPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Kupon Preview Dialog */}
+
+      {/* Dialog Preview Kupon Mustahiq */}
       <Dialog open={!!showPreview} onOpenChange={() => setShowPreview(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Preview Kupon</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Preview Kupon Mustahiq</DialogTitle></DialogHeader>
           {previewMustahiq && (
             <div className="space-y-4">
               <div className="border rounded-lg p-4 text-center space-y-2">
@@ -486,7 +636,7 @@ const MustahiqPage = () => {
                 </div>
                 <p className="font-mono text-sm">{previewMustahiq.nomor_kupon}</p>
                 <p className="font-medium">{previewMustahiq.nama}</p>
-                <p className="text-sm capitalize text-muted-foreground">{previewMustahiq.kategori}</p>
+                <p className="text-sm capitalize text-muted-foreground">{previewMustahiq.kategori?.replace(/_/g, " ")}</p>
               </div>
               <Button className="w-full" variant="outline" onClick={() => unduhSingleKupon(previewMustahiq)}>
                 <Download className="mr-2 h-4 w-4" /> Unduh kupon ini
@@ -496,20 +646,39 @@ const MustahiqPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* QR Scanner Dialog */}
+      {/* Dialog Preview Kupon Shohibul */}
+      <Dialog open={!!showPreviewShohibul} onOpenChange={() => setShowPreviewShohibul(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Preview Kupon Shohibul</DialogTitle></DialogHeader>
+          {previewShohibulKupon && (
+            <div className="space-y-4">
+              <div className="border rounded-lg p-4 text-center space-y-2">
+                <p className="font-bold text-lg">Kupon Shohibul Qurban 1447H</p>
+                <p className="text-sm text-muted-foreground">Masjid At-Tauhid Pangkalpinang</p>
+                <p className="text-xs text-muted-foreground">
+                  {previewShohibulKupon.nomor_kupon?.startsWith("SS") ? "🐄 Sapi" : "🐐 Kambing"}
+                </p>
+                <div className="flex justify-center py-2">
+                  <QRCodeCanvas value={previewShohibulKupon.qr_data ?? previewShohibulKupon.nomor_kupon ?? previewShohibulKupon.id} size={150} />
+                </div>
+                <p className="font-mono text-sm">{previewShohibulKupon.nomor_kupon}</p>
+                <p className="font-medium">{previewShohibulKupon.nama}</p>
+                <Badge variant="outline" className="text-xs">Shohibul Qurban</Badge>
+              </div>
+              <Button className="w-full" variant="outline" onClick={() => unduhSingleKupon(previewShohibulKupon)}>
+                <Download className="mr-2 h-4 w-4" /> Unduh kupon ini
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+
+      {/* Dialog QR Scanner */}
       <Dialog open={showScanner} onOpenChange={handleCloseScanDialog}>
         <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Scan Kupon QR</DialogTitle>
-          </DialogHeader>
-
-          <div
-            id="qr-reader"
-            key={scanKey}
-            className="w-full"
-            style={{ display: scanState === "scanning" ? "block" : "none" }}
-          />
-
+          <DialogHeader><DialogTitle>Scan Kupon QR</DialogTitle></DialogHeader>
+          <div id="qr-reader" key={scanKey} className="w-full" style={{ display: scanState === "scanning" ? "block" : "none" }} />
           {scanState === "success" && scanResult && (
             <div className="flex flex-col items-center gap-3 py-4">
               <CheckCircle2 className="h-16 w-16 text-green-500" />
@@ -523,7 +692,6 @@ const MustahiqPage = () => {
               </div>
             </div>
           )}
-
           {scanState === "error" && (
             <div className="flex flex-col items-center gap-3 py-4">
               <XCircle className="h-16 w-16 text-red-500" />
@@ -537,10 +705,9 @@ const MustahiqPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Import Excel Dialog */}
+      {/* Dialog Import Excel */}
       <ImportExcelDialog
-        open={showImport}
-        onOpenChange={setShowImport}
+        open={showImport} onOpenChange={setShowImport}
         title="Import Mustahiq dari Excel"
         columns={[
           { key: "nama", label: "Nama", required: true },
