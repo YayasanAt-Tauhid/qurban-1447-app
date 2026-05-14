@@ -114,7 +114,7 @@ const Dashboard = () => {
   const { data: mustahiqCount, isLoading: loadingMustahiq } = useQuery({
     queryKey: ["dashboard-mustahiq-count"],
     queryFn: async () => {
-      const { count } = await supabase.from("mustahiq").select("*", { count: "exact", head: true }).eq("tahun", 1447);
+      const { count } = await supabase.from("mustahiq").select("*", { count: "exact", head: true }).eq("tahun", 1447).neq("status_lainnya", "shohibul_qurban");
       return count ?? 0;
     },
   });
