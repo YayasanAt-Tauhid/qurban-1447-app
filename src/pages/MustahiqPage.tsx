@@ -146,6 +146,9 @@ const MustahiqPage = () => {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [mainTab, setMainTab] = useState<MainTab>("mustahiq");
+  const [pageMustahiq, setPageMustahiq] = useState(1);
+  const [pageShohibul, setPageShohibul] = useState(1);
+  const PAGE_SIZE = 25;
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showKupon, setShowKupon] = useState(false);
@@ -248,6 +251,13 @@ const MustahiqPage = () => {
   const filteredShohibul = shohibulList.filter((m) =>
     !search || m.nama?.toLowerCase().includes(search.toLowerCase()) || m.nomor_kupon?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const totalPagesMustahiq = Math.max(1, Math.ceil(filteredMustahiq.length / PAGE_SIZE));
+  const totalPagesShohibul = Math.max(1, Math.ceil(filteredShohibul.length / PAGE_SIZE));
+  const pagedMustahiq = filteredMustahiq.slice((pageMustahiq - 1) * PAGE_SIZE, pageMustahiq * PAGE_SIZE);
+  const pagedShohibul = filteredShohibul.slice((pageShohibul - 1) * PAGE_SIZE, pageShohibul * PAGE_SIZE);
+  const offsetMustahiq = (pageMustahiq - 1) * PAGE_SIZE;
+  const offsetShohibul = (pageShohibul - 1) * PAGE_SIZE;
 
   const togglePengambilan = useMutation({
     mutationFn: async (m: MustahiqRow) => {
@@ -372,7 +382,7 @@ const MustahiqPage = () => {
       {/* Search */}
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Cari nama / nomor kupon..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Input placeholder="Cari nama / nomor kupon..." className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPageMustahiq(1); setPageShohibul(1); }} />
       </div>
 
       {/* Main Tabs: Mustahiq | Shohibul Qurban */}
@@ -406,9 +416,9 @@ const MustahiqPage = () => {
                 <TableBody>
                   {filteredMustahiq.length === 0 ? (
                     <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Belum ada data</TableCell></TableRow>
-                  ) : filteredMustahiq.map((m, i) => (
+                  ) : pagedMustahiq.map((m, i) => (
                     <TableRow key={m.id}>
-                      <TableCell className="text-xs">{i + 1}</TableCell>
+                      <TableCell className="text-xs">{offsetMustahiq + i + 1}</TableCell>
                       <TableCell className="font-medium">{m.nama}</TableCell>
                       <TableCell><StatusBadge value={m.status_warga} labels={["Warga", "Bukan Warga", ""]} /></TableCell>
                       <TableCell><StatusBadge value={m.status_jamaah} labels={["Jama'ah", "Bukan Jama'ah", ""]} /></TableCell>
@@ -439,10 +449,20 @@ const MustahiqPage = () => {
                 </TableBody>
               </Table>
             </div>
+            {/* Paging Mustahiq */}
+            {totalPagesMustahiq > 1 && (
+              <div className="flex items-center justify-between pt-2 text-sm text-muted-foreground">
+                <span>Halaman {pageMustahiq} dari {totalPagesMustahiq} · {filteredMustahiq.length} data</span>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" disabled={pageMustahiq === 1} onClick={() => setPageMustahiq(1)}>«</Button>
+                  <Button variant="outline" size="sm" disabled={pageMustahiq === 1} onClick={() => setPageMustahiq(p => p - 1)}>‹</Button>
+                  <Button variant="outline" size="sm" disabled={pageMustahiq === totalPagesMustahiq} onClick={() => setPageMustahiq(p => p + 1)}>›</Button>
+                  <Button variant="outline" size="sm" disabled={pageMustahiq === totalPagesMustahiq} onClick={() => setPageMustahiq(totalPagesMustahiq)}>»</Button>
+                </div>
+              </div>
+            )}
           )}
         </TabsContent>
-
-        {/* ── Tab Shohibul Qurban ── */}
         <TabsContent value="shohibul" className="mt-4">
           {loadingShohibul ? (
             <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
@@ -461,9 +481,9 @@ const MustahiqPage = () => {
                 <TableBody>
                   {filteredShohibul.length === 0 ? (
                     <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Belum ada data</TableCell></TableRow>
-                  ) : filteredShohibul.map((m, i) => (
+                  ) : pagedShohibul.map((m, i) => (
                     <TableRow key={m.id}>
-                      <TableCell className="text-xs">{i + 1}</TableCell>
+                      <TableCell className="text-xs">{offsetShohibul + i + 1}</TableCell>
                       <TableCell className="font-medium">{m.nama}</TableCell>
                       <TableCell className="text-xs">{m.keterangan ?? "—"}</TableCell>
                       <TableCell><Badge variant="outline" className="font-mono text-xs">{m.nomor_kupon ?? "—"}</Badge></TableCell>
@@ -483,6 +503,18 @@ const MustahiqPage = () => {
                 </TableBody>
               </Table>
             </div>
+            {/* Paging Shohibul */}
+            {totalPagesShohibul > 1 && (
+              <div className="flex items-center justify-between pt-2 text-sm text-muted-foreground">
+                <span>Halaman {pageShohibul} dari {totalPagesShohibul} · {filteredShohibul.length} data</span>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" disabled={pageShohibul === 1} onClick={() => setPageShohibul(1)}>«</Button>
+                  <Button variant="outline" size="sm" disabled={pageShohibul === 1} onClick={() => setPageShohibul(p => p - 1)}>‹</Button>
+                  <Button variant="outline" size="sm" disabled={pageShohibul === totalPagesShohibul} onClick={() => setPageShohibul(p => p + 1)}>›</Button>
+                  <Button variant="outline" size="sm" disabled={pageShohibul === totalPagesShohibul} onClick={() => setPageShohibul(totalPagesShohibul)}>»</Button>
+                </div>
+              </div>
+            )}
           )}
         </TabsContent>
       </Tabs>
