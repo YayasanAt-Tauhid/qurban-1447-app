@@ -407,6 +407,7 @@ const MustahiqPage = () => {
           {loadingMustahiq ? (
             <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
           ) : (
+            <>
             <div className="border rounded-lg overflow-auto">
               <Table>
                 <TableHeader>
@@ -471,12 +472,14 @@ const MustahiqPage = () => {
                 </div>
               </div>
             )}
+            </>
           )}
         </TabsContent>
         <TabsContent value="shohibul" className="mt-4">
           {loadingShohibul ? (
             <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
           ) : (
+            <>
             <div className="border rounded-lg overflow-auto">
               <Table>
                 <TableHeader>
@@ -525,6 +528,7 @@ const MustahiqPage = () => {
                 </div>
               </div>
             )}
+            </>
           )}
         </TabsContent>
       </Tabs>
