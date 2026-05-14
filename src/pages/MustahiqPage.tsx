@@ -1,4 +1,4 @@
-﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import KuponTemplate from "@/components/KuponTemplate";
 import ImportExcelDialog from "@/components/ImportExcelDialog";
 
-// ΓöÇΓöÇΓöÇ Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Types ───────────────────────────────────────────────────────────────────
 type StatusWarga   = "warga" | "bukan_warga" | null;
 type StatusJamaah  = "jamaah" | "bukan_jamaah" | null;
 type StatusPanitia = "panitia" | "bukan_panitia" | null;
@@ -65,7 +65,7 @@ const EMPTY_FORM: FormData = {
   keterangan: "",
 };
 
-// ΓöÇΓöÇΓöÇ Excel helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Excel helpers ────────────────────────────────────────────────────────────
 function rowToExcel(m: MustahiqRow, no: number) {
   return {
     "No": no,
@@ -128,9 +128,9 @@ const IMPORT_TEMPLATE = [
   { "Nama Penerima": "Hasan bin Ali", "Status Warga": "",            "Status Jama'ah": "",              "Status Panitia": "Bukan Panitia","Status Lainnya": "",    "Penyalur": "Pak Lurah"},
 ];
 
-// ΓöÇΓöÇΓöÇ Badge helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Badge helpers ────────────────────────────────────────────────────────────
 function StatusBadge({ value, labels }: { value: string | null; labels: [string, string, string] }) {
-  if (!value) return <span className="text-xs text-muted-foreground">ΓÇö</span>;
+  if (!value) return <span className="text-xs text-muted-foreground">—</span>;
   const [pos, neg] = [labels[0], labels[1]];
   const isPos = !value.startsWith("bukan_") && value !== null;
   return (
@@ -140,7 +140,7 @@ function StatusBadge({ value, labels }: { value: string | null; labels: [string,
   );
 }
 
-// ΓöÇΓöÇΓöÇ Main Component ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Main Component ───────────────────────────────────────────────────────────
 const MustahiqPage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -162,7 +162,7 @@ const MustahiqPage = () => {
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const kuponRef = useRef<HTMLDivElement>(null);
 
-  // ΓöÇΓöÇ Queries ΓöÇΓöÇ
+  // ── Queries ──
   const { data: mustahiqList = [], isLoading: loadingMustahiq } = useQuery({
     queryKey: ["mustahiq"],
     queryFn: async () => {
@@ -192,7 +192,7 @@ const MustahiqPage = () => {
     },
   });
 
-  // ΓöÇΓöÇ Mutations ΓöÇΓöÇ
+  // ── Mutations ──
   const addMutation = useMutation({
     mutationFn: async (values: FormData) => {
       const { data: existingQM } = await supabase
@@ -247,7 +247,7 @@ const MustahiqPage = () => {
     onError: (e: any) => { setScanError(e.message); setScanState("error"); },
   });
 
-  // ΓöÇΓöÇ Helpers ΓöÇΓöÇ
+  // ── Helpers ──
   const filteredMustahiq = mustahiqList.filter((m) =>
     m.status_lainnya !== "shohibul_qurban" &&
     (!search || m.nama?.toLowerCase().includes(search.toLowerCase()) || m.nomor_kupon?.toLowerCase().includes(search.toLowerCase()))
@@ -279,7 +279,7 @@ const MustahiqPage = () => {
   const handleScanAgain = () => { setScanState("scanning"); setScanResult(null); setScanError(""); setScanKey((k) => k + 1); };
   const handleCloseScan = (open: boolean) => { if (!open) { setScanState("scanning"); setScanResult(null); setScanError(""); } setShowScan(open); };
 
-  // ΓöÇΓöÇ QR Scanner via html5-qrcode ΓöÇΓöÇ
+  // ── QR Scanner via html5-qrcode ──
   const scanningRef = useRef(false);
 
   useEffect(() => {
@@ -353,7 +353,7 @@ const MustahiqPage = () => {
     pdf.save(`kupon-${selected?.nomor_kupon ?? "kupon"}.pdf`);
   };
 
-  // ΓöÇΓöÇ Form Select helper ΓöÇΓöÇ
+  // ── Form Select helper ──
   const SF = <T extends string | null>({ label, value, options, onChange }: {
     label: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void;
   }) => (
@@ -362,7 +362,7 @@ const MustahiqPage = () => {
       <Select value={value ?? "__null__"} onValueChange={(v) => onChange((v === "__null__" ? null : v) as T)}>
         <SelectTrigger><SelectValue /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="__null__">ΓÇö Kosong ΓÇö</SelectItem>
+          <SelectItem value="__null__">— Kosong —</SelectItem>
           {options.map((o) => <SelectItem key={String(o.value)} value={String(o.value)}>{o.label}</SelectItem>)}
         </SelectContent>
       </Select>
@@ -402,7 +402,7 @@ const MustahiqPage = () => {
           <TabsTrigger value="shohibul">Shohibul Qurban ({shohibulList.length})</TabsTrigger>
         </TabsList>
 
-        {/* ΓöÇΓöÇ Tab Mustahiq ΓöÇΓöÇ */}
+        {/* ── Tab Mustahiq ── */}
         <TabsContent value="mustahiq" className="mt-4">
           {loadingMustahiq ? (
             <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
@@ -433,9 +433,9 @@ const MustahiqPage = () => {
                       <TableCell><StatusBadge value={m.status_warga} labels={["Warga", "Bukan Warga", ""]} /></TableCell>
                       <TableCell><StatusBadge value={m.status_jamaah} labels={["Jama'ah", "Bukan Jama'ah", ""]} /></TableCell>
                       <TableCell><StatusBadge value={m.status_panitia} labels={["Panitia", "Bukan Panitia", ""]} /></TableCell>
-                      <TableCell>{m.status_lainnya === "dhuafa" ? <Badge variant="outline" className="text-xs">Dhu'afa</Badge> : <span className="text-xs text-muted-foreground">ΓÇö</span>}</TableCell>
-                      <TableCell className="text-xs">{m.nama_penyalur ?? "ΓÇö"}</TableCell>
-                      <TableCell><Badge variant="outline" className="font-mono text-xs">{m.nomor_kupon ?? "ΓÇö"}</Badge></TableCell>
+                      <TableCell>{m.status_lainnya === "dhuafa" ? <Badge variant="outline" className="text-xs">Dhu'afa</Badge> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
+                      <TableCell className="text-xs">{m.nama_penyalur ?? "—"}</TableCell>
+                      <TableCell><Badge variant="outline" className="font-mono text-xs">{m.nomor_kupon ?? "—"}</Badge></TableCell>
                       <TableCell>
                         <Button
                           variant="ghost" size="sm"
@@ -462,12 +462,12 @@ const MustahiqPage = () => {
             {/* Paging Mustahiq */}
             {totalPagesMustahiq > 1 && (
               <div className="flex items-center justify-between pt-2 text-sm text-muted-foreground">
-                <span>Halaman {pageMustahiq} dari {totalPagesMustahiq} ┬╖ {filteredMustahiq.length} data</span>
+                <span>Halaman {pageMustahiq} dari {totalPagesMustahiq} · {filteredMustahiq.length} data</span>
                 <div className="flex gap-1">
-                  <Button variant="outline" size="sm" disabled={pageMustahiq === 1} onClick={() => setPageMustahiq(1)}>┬½</Button>
-                  <Button variant="outline" size="sm" disabled={pageMustahiq === 1} onClick={() => setPageMustahiq(p => p - 1)}>ΓÇ╣</Button>
-                  <Button variant="outline" size="sm" disabled={pageMustahiq === totalPagesMustahiq} onClick={() => setPageMustahiq(p => p + 1)}>ΓÇ║</Button>
-                  <Button variant="outline" size="sm" disabled={pageMustahiq === totalPagesMustahiq} onClick={() => setPageMustahiq(totalPagesMustahiq)}>┬╗</Button>
+                  <Button variant="outline" size="sm" disabled={pageMustahiq === 1} onClick={() => setPageMustahiq(1)}>«</Button>
+                  <Button variant="outline" size="sm" disabled={pageMustahiq === 1} onClick={() => setPageMustahiq(p => p - 1)}>‹</Button>
+                  <Button variant="outline" size="sm" disabled={pageMustahiq === totalPagesMustahiq} onClick={() => setPageMustahiq(p => p + 1)}>›</Button>
+                  <Button variant="outline" size="sm" disabled={pageMustahiq === totalPagesMustahiq} onClick={() => setPageMustahiq(totalPagesMustahiq)}>»</Button>
                 </div>
               </div>
             )}
@@ -495,8 +495,8 @@ const MustahiqPage = () => {
                     <TableRow key={m.id}>
                       <TableCell className="text-xs">{offsetShohibul + i + 1}</TableCell>
                       <TableCell className="font-medium">{m.nama}</TableCell>
-                      <TableCell className="text-xs">{m.keterangan ?? "ΓÇö"}</TableCell>
-                      <TableCell><Badge variant="outline" className="font-mono text-xs">{m.nomor_kupon ?? "ΓÇö"}</Badge></TableCell>
+                      <TableCell className="text-xs">{m.keterangan ?? "—"}</TableCell>
+                      <TableCell><Badge variant="outline" className="font-mono text-xs">{m.nomor_kupon ?? "—"}</Badge></TableCell>
                       <TableCell>
                         <Button
                           variant="ghost" size="sm"
@@ -516,12 +516,12 @@ const MustahiqPage = () => {
             {/* Paging Shohibul */}
             {totalPagesShohibul > 1 && (
               <div className="flex items-center justify-between pt-2 text-sm text-muted-foreground">
-                <span>Halaman {pageShohibul} dari {totalPagesShohibul} ┬╖ {filteredShohibul.length} data</span>
+                <span>Halaman {pageShohibul} dari {totalPagesShohibul} · {filteredShohibul.length} data</span>
                 <div className="flex gap-1">
-                  <Button variant="outline" size="sm" disabled={pageShohibul === 1} onClick={() => setPageShohibul(1)}>┬½</Button>
-                  <Button variant="outline" size="sm" disabled={pageShohibul === 1} onClick={() => setPageShohibul(p => p - 1)}>ΓÇ╣</Button>
-                  <Button variant="outline" size="sm" disabled={pageShohibul === totalPagesShohibul} onClick={() => setPageShohibul(p => p + 1)}>ΓÇ║</Button>
-                  <Button variant="outline" size="sm" disabled={pageShohibul === totalPagesShohibul} onClick={() => setPageShohibul(totalPagesShohibul)}>┬╗</Button>
+                  <Button variant="outline" size="sm" disabled={pageShohibul === 1} onClick={() => setPageShohibul(1)}>«</Button>
+                  <Button variant="outline" size="sm" disabled={pageShohibul === 1} onClick={() => setPageShohibul(p => p - 1)}>‹</Button>
+                  <Button variant="outline" size="sm" disabled={pageShohibul === totalPagesShohibul} onClick={() => setPageShohibul(p => p + 1)}>›</Button>
+                  <Button variant="outline" size="sm" disabled={pageShohibul === totalPagesShohibul} onClick={() => setPageShohibul(totalPagesShohibul)}>»</Button>
                 </div>
               </div>
             )}
@@ -663,4 +663,3 @@ const MustahiqPage = () => {
 };
 
 export default MustahiqPage;
-
