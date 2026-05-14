@@ -64,5 +64,5 @@ export function hitungTotalPerOrang(
 }
 
 export function generateNomorKupon(index: number): string {
-  return `QRB-1447-${String(index).padStart(4, "0")}`;
+  return `QM-${String(index).padStart(3, "0")}`;
 }
