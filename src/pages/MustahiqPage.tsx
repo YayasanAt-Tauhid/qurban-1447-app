@@ -208,14 +208,23 @@ const MustahiqPage = () => {
   });
 
   const verifyKuponMutation = useMutation({
-    mutationFn: async (nomor_kupon: string) => {
-      const { data, error } = await supabase.from("kupon_qurban").select("*, mustahiq(*)").eq("nomor_kupon", nomor_kupon).single();
+    mutationFn: async (input: string) => {
+      // cari berdasarkan nomor_kupon atau qr_data
+      const { data, error } = await supabase
+        .from("mustahiq")
+        .select("*")
+        .or(`nomor_kupon.eq.${input},qr_data.eq.${input}`)
+        .single();
       if (error || !data) throw new Error("Kupon tidak ditemukan");
-      if (data.status === "digunakan") throw new Error("Kupon sudah digunakan");
-      await supabase.from("kupon_qurban").update({ status: "digunakan", digunakan_pada: new Date().toISOString(), digunakan_oleh: user?.id }).eq("id", data.id);
+      if (data.status_kupon === "sudah_ambil") throw new Error(`${data.nama} sudah mengambil daging`);
+      const { error: updateError } = await supabase
+        .from("mustahiq")
+        .update({ status_kupon: "sudah_ambil" })
+        .eq("id", data.id);
+      if (updateError) throw updateError;
       return data;
     },
-    onSuccess: (data) => { setScanResult(data); setScanState("success"); queryClient.invalidateQueries({ queryKey: ["kupon_qurban"] }); },
+    onSuccess: (data) => { setScanResult(data); setScanState("success"); queryClient.invalidateQueries({ queryKey: ["mustahiq"] }); queryClient.invalidateQueries({ queryKey: ["mustahiq_shohibul"] }); },
     onError: (e: any) => { setScanError(e.message); setScanState("error"); },
   });
 
