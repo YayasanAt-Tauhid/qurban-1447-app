@@ -195,7 +195,14 @@ const MustahiqPage = () => {
   // ΓöÇΓöÇ Mutations ΓöÇΓöÇ
   const addMutation = useMutation({
     mutationFn: async (values: FormData) => {
-      const { data: existingQM } = await supabase`n        .from("mustahiq")`n        .select("nomor_kupon")`n        .like("nomor_kupon", "QM-%");`n      const nextNo = (existingQM?.length ?? 0) + 1;`n      const nomor_kupon = generateNomorKupon(nextNo);`n      const { error } = await supabase.from("mustahiq").insert({ ...values, nomor_kupon });`n      if (error) throw error;
+      const { data: existingQM } = await supabase
+        .from("mustahiq")
+        .select("nomor_kupon")
+        .like("nomor_kupon", "QM-%");
+      const nextNo = (existingQM?.length ?? 0) + 1;
+      const nomor_kupon = generateNomorKupon(nextNo);
+      const { error } = await supabase.from("mustahiq").insert({ ...values, nomor_kupon });
+      if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["mustahiq"] }); toast.success("Mustahiq ditambahkan"); setShowAdd(false); },
     onError: (e: any) => toast.error(e.message),
