@@ -56,13 +56,13 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarContent className="bg-sidebar">
         <div className="p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-sidebar-primary rounded-xl flex items-center justify-center flex-shrink-0">
-            <span className="text-sidebar-primary-foreground text-lg">🕌</span>
+          <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden">
+            <img src="/logo.svg" alt="Qurban Manager Logo" className="w-full h-full object-contain" />
           </div>
           {!collapsed && (
             <div className="min-w-0">
               <h2 className="text-sm font-bold text-sidebar-foreground truncate">Qurban Manager</h2>
-              <p className="text-xs text-sidebar-foreground/60">1447H</p>
+              <p className="text-xs text-sidebar-foreground/60">1447H · Yayasan At-Tauhid</p>
             </div>
           )}
         </div>
