@@ -65,7 +65,7 @@ const App = () => (
             <Route path="/shohibul/:id" element={<ProtectedLayout><ShohibulDetail /></ProtectedLayout>} />
             <Route path="/panitia" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin"]}><PanitiaPage /></RoleGuard></ProtectedLayout>} />
             <Route path="/keuangan" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_keuangan"]}><KeuanganPage /></RoleGuard></ProtectedLayout>} />
-            <Route path="/mustahiq" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_kupon"]}><MustahiqPage /></RoleGuard></ProtectedLayout>} />
+            <Route path="/pengambilan" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_kupon"]}><MustahiqPage /></RoleGuard></ProtectedLayout>} />
             <Route path="/distribusi" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_kupon", "admin_hewan"]}><DistribusiPage /></RoleGuard></ProtectedLayout>} />
             <Route path="/laporan" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_keuangan"]}><LaporanPage /></RoleGuard></ProtectedLayout>} />
             <Route path="/cetak-label" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_pendaftaran", "admin_kupon"]}><CetakLabelPage /></RoleGuard></ProtectedLayout>} />
