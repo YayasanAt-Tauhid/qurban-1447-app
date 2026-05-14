@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Printer, ScanLine, Eye, FileUp, FileDown, CheckCircle2, XCircle } from "lucide-react";
 import * as XLSX from "xlsx";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { generateNomorKupon } from "@/lib/qurban-utils";
 import { QRCodeCanvas } from "qrcode.react";
@@ -139,6 +139,7 @@ const MustahiqPage = () => {
   const [showEdit, setShowEdit] = useState(false);
   const [showKupon, setShowKupon] = useState(false);
   const [showScan, setShowScan] = useState(false);
+  const [scanKey, setScanKey] = useState(0);
   const [showImport, setShowImport] = useState(false);
   const [selected, setSelected] = useState<MustahiqRow | null>(null);
   const [scanState, setScanState] = useState<ScanState>("scanning");
@@ -240,8 +241,33 @@ const MustahiqPage = () => {
 
   const openEdit = (m: MustahiqRow) => { setSelected(m); setForm({ nama: m.nama, status_warga: m.status_warga, status_jamaah: m.status_jamaah, status_panitia: m.status_panitia, status_lainnya: m.status_lainnya, nama_penyalur: m.nama_penyalur ?? "", keterangan: m.keterangan ?? "" }); setShowEdit(true); };
   const openKupon = (m: MustahiqRow) => { setSelected(m); setShowKupon(true); };
-  const handleScanAgain = () => { setScanState("scanning"); setScanResult(null); setScanError(""); };
+  const handleScanAgain = () => { setScanState("scanning"); setScanResult(null); setScanError(""); setScanKey((k) => k + 1); };
   const handleCloseScan = (open: boolean) => { if (!open) { setScanState("scanning"); setScanResult(null); setScanError(""); } setShowScan(open); };
+
+  // ── QR Scanner via html5-qrcode ──
+  const stopScanner = useCallback(async () => {
+    try {
+      const { Html5Qrcode } = await import("html5-qrcode");
+      const instance = new Html5Qrcode("qr-reader");
+      if (instance.isScanning) await instance.stop();
+      instance.clear();
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (!showScan || scanState !== "scanning") return;
+    let scanner: any;
+    import("html5-qrcode").then(({ Html5Qrcode }) => {
+      scanner = new Html5Qrcode("qr-reader");
+      scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText: string) => { verifyKuponMutation.mutate(decodedText); },
+        () => {}
+      ).catch(() => {});
+    });
+    return () => { if (scanner) { try { scanner.stop().then(() => scanner.clear()); } catch { /* ignore */ } } };
+  }, [showScan, scanState, scanKey]);
   const kuponMustahiq = selected ? kuponList.find((k: any) => k.mustahiq_id === selected.id) : null;
 
   const handleExport = () => {
@@ -539,17 +565,19 @@ const MustahiqPage = () => {
           <DialogHeader><DialogTitle>Scan Kupon</DialogTitle></DialogHeader>
           {scanState === "scanning" && (
             <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">Masukkan nomor kupon untuk verifikasi:</p>
+              <div id="qr-reader" className="w-full rounded-lg overflow-hidden" />
+              <p className="text-xs text-center text-muted-foreground">— atau ketik manual —</p>
               <Input placeholder="Nomor kupon..." autoFocus onKeyDown={(e) => {
                 if (e.key === "Enter") { const v = (e.target as HTMLInputElement).value.trim(); if (v) verifyKuponMutation.mutate(v); }
               }} />
-              <p className="text-xs text-muted-foreground">Tekan Enter untuk verifikasi</p>
+              <p className="text-xs text-muted-foreground text-center">Tekan Enter untuk verifikasi manual</p>
             </div>
           )}
           {scanState === "success" && (
             <div className="flex flex-col items-center gap-3 py-4">
               <CheckCircle2 className="h-16 w-16 text-green-500" />
-              <p className="font-medium">{scanResult?.mustahiq?.nama}</p>
+              <p className="font-medium">{scanResult?.mustahiq?.nama ?? scanResult?.nama}</p>
+              <p className="text-sm text-muted-foreground">{scanResult?.nomor_kupon}</p>
               <p className="text-sm text-green-600 font-medium">Kupon berhasil diverifikasi!</p>
               <div className="flex gap-2 w-full mt-2">
                 <Button variant="outline" className="flex-1" onClick={handleScanAgain}>Scan Berikutnya</Button>
