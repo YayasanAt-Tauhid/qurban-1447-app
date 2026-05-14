@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { formatRupiah } from "@/lib/qurban-utils";
+import { formatRupiah, generateNomorKupon } from "@/lib/qurban-utils";
 import { ArrowLeft, Copy, Check, MessageCircle } from "lucide-react";
 import { KATEGORI_BAGIAN, getKuotaKategori } from "@/pages/UndianBagian";
 
@@ -249,6 +249,22 @@ const ShohibulDaftar = () => {
         .select("id")
         .single();
       if (error) throw error;
+
+      // ── Sinkronisasi otomatis ke tabel mustahiq ──────────────────────────
+      {
+        const { data: allMustahiq } = await supabase.from("mustahiq").select("id");
+        const nextNo = (allMustahiq?.length ?? 0) + 1;
+        const nomor_kupon = generateNomorKupon(nextNo);
+        await supabase.from("mustahiq").insert({
+          nama,
+          nomor_kupon,
+          status_lainnya: "shohibul_qurban" as any,
+          status_warga: null as any,
+          status_jamaah: null as any,
+          status_panitia: null as any,
+          keterangan: `${selectedHewan!.nomor_urut} - ${selectedHewan!.jenis_hewan}`,
+        } as any);
+      }
 
       if (isSapi && requestBagian.length > 0) {
         // Simpan request_bagian (per kategori)

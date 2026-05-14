@@ -83,6 +83,17 @@ function rowToExcel(m: MustahiqRow, no: number) {
   };
 }
 
+function rowToExcelShohibul(m: MustahiqRow, no: number) {
+  return {
+    "No": no,
+    "Nomor Kupon": m.nomor_kupon ?? "",
+    "Nama Shohibul": m.nama,
+    "Hewan Qurban": m.keterangan ?? "",
+    "Status Pengambilan": m.status_kupon === "sudah_ambil" ? "Sudah Ambil" : "Belum Ambil",
+  };
+}
+
+
 function excelToForm(row: Record<string, any>): Omit<FormData, "keterangan"> | null {
   const nama = String(row["Nama Penerima"] ?? "").trim();
   if (!nama) return null;
@@ -291,9 +302,9 @@ const MustahiqPage = () => {
   };
 
   const handleExportShohibul = () => {
-    const rows = filteredShohibul.map((m, i) => rowToExcel(m, i + 1));
+    const rows = filteredShohibul.map((m, i) => rowToExcelShohibul(m, i + 1));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 4 }, { wch: 14 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 20 }, { wch: 16 }];
+    ws["!cols"] = [{ wch: 4 }, { wch: 14 }, { wch: 28 }, { wch: 20 }, { wch: 16 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Shohibul Qurban");
     XLSX.writeFile(wb, `shohibul-qurban-${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -441,28 +452,20 @@ const MustahiqPage = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">No</TableHead>
-                    <TableHead>Nama Penerima</TableHead>
-                    <TableHead>Status Warga</TableHead>
-                    <TableHead>Status Jama'ah</TableHead>
-                    <TableHead>Status Panitia</TableHead>
-                    <TableHead>Status Lainnya</TableHead>
-                    <TableHead>Penyalur</TableHead>
+                    <TableHead>Nama Shohibul</TableHead>
+                    <TableHead>Hewan Qurban</TableHead>
                     <TableHead>No Kupon</TableHead>
                     <TableHead>Pengambilan</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredShohibul.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Belum ada data</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Belum ada data</TableCell></TableRow>
                   ) : filteredShohibul.map((m, i) => (
                     <TableRow key={m.id}>
                       <TableCell className="text-xs">{i + 1}</TableCell>
                       <TableCell className="font-medium">{m.nama}</TableCell>
-                      <TableCell><StatusBadge value={m.status_warga} labels={["Warga", "Bukan Warga", ""]} /></TableCell>
-                      <TableCell><StatusBadge value={m.status_jamaah} labels={["Jama'ah", "Bukan Jama'ah", ""]} /></TableCell>
-                      <TableCell><StatusBadge value={m.status_panitia} labels={["Panitia", "Bukan Panitia", ""]} /></TableCell>
-                      <TableCell><Badge variant="secondary" className="text-xs">Shohibul Qurban</Badge></TableCell>
-                      <TableCell className="text-xs">{m.nama_penyalur ?? "—"}</TableCell>
+                      <TableCell className="text-xs">{m.keterangan ?? "—"}</TableCell>
                       <TableCell><Badge variant="outline" className="font-mono text-xs">{m.nomor_kupon ?? "—"}</Badge></TableCell>
                       <TableCell>
                         <Button
