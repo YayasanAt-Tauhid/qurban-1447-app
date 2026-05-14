@@ -56,8 +56,29 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarContent className="bg-sidebar">
         <div className="p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden">
-            <img src="/logo.svg" alt="Qurban Manager Logo" className="w-full h-full object-contain" />
+          <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden flex items-center justify-center" style={{background:"#1a6b3c"}}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="40" height="40">
+              <ellipse cx="100" cy="88" rx="52" ry="54" fill="#ffffff"/>
+              <rect x="48" y="88" width="104" height="60" fill="#ffffff"/>
+              <rect x="83" y="118" width="34" height="30" rx="17" fill="#1a6b3c"/>
+              <rect x="30" y="100" width="18" height="48" rx="4" fill="rgba(255,255,255,0.85)"/>
+              <ellipse cx="39" cy="100" rx="9" ry="14" fill="#ffffff"/>
+              <rect x="152" y="100" width="18" height="48" rx="4" fill="rgba(255,255,255,0.85)"/>
+              <ellipse cx="161" cy="100" rx="9" ry="14" fill="#ffffff"/>
+              <ellipse cx="100" cy="38" rx="10" ry="10" fill="#f5c842"/>
+              <ellipse cx="105" cy="35" rx="8" ry="8" fill="#1a6b3c"/>
+              <circle cx="118" cy="32" r="3" fill="#f5c842"/>
+              <rect x="22" y="148" width="156" height="6" rx="3" fill="#f5c842"/>
+              <ellipse cx="100" cy="172" rx="30" ry="14" fill="#f5c842"/>
+              <ellipse cx="124" cy="163" rx="11" ry="9" fill="#f5c842"/>
+              <path d="M119 156 Q116 148 122 145" fill="none" stroke="#f5c842" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M126 156 Q130 149 127 145" fill="none" stroke="#f5c842" strokeWidth="2.5" strokeLinecap="round"/>
+              <rect x="78" y="184" width="6" height="12" rx="3" fill="#f5c842"/>
+              <rect x="90" y="184" width="6" height="12" rx="3" fill="#f5c842"/>
+              <rect x="104" y="184" width="6" height="12" rx="3" fill="#f5c842"/>
+              <rect x="116" y="184" width="6" height="12" rx="3" fill="#f5c842"/>
+              <path d="M70 168 Q62 162 65 155" fill="none" stroke="#f5c842" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
           </div>
           {!collapsed && (
             <div className="min-w-0">
