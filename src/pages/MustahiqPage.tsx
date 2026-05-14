@@ -254,6 +254,16 @@ const MustahiqPage = () => {
     toast.success("Export berhasil");
   };
 
+  const handleExportShohibul = () => {
+    const rows = filteredShohibul.map((m, i) => rowToExcel(m, i + 1));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 4 }, { wch: 14 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 20 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Shohibul Qurban");
+    XLSX.writeFile(wb, `shohibul-qurban-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success("Export berhasil");
+  };
+
   const handleImport = async (rows: Record<string, any>[]) => {
     const mapped = rows.map(excelToForm).filter(Boolean);
     if (!mapped.length) throw new Error("Tidak ada data valid");
@@ -302,6 +312,9 @@ const MustahiqPage = () => {
             <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><FileUp className="mr-1 h-4 w-4" />Import</Button>
             <Button variant="outline" size="sm" onClick={handleExport}><FileDown className="mr-1 h-4 w-4" />Export</Button>
           </>}
+          {mainTab === "shohibul" && (
+            <Button variant="outline" size="sm" onClick={handleExportShohibul}><FileDown className="mr-1 h-4 w-4" />Export</Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setShowScan(true)}><ScanLine className="mr-1 h-4 w-4" />Scan Kupon</Button>
           {mainTab === "mustahiq" && (
             <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setShowAdd(true); }}><Plus className="mr-1 h-4 w-4" />Tambah</Button>
