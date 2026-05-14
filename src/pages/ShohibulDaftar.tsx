@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { formatRupiah, generateNomorKupon } from "@/lib/qurban-utils";
+import { formatRupiah } from "@/lib/qurban-utils";
 import { ArrowLeft, Copy, Check, MessageCircle } from "lucide-react";
 import { KATEGORI_BAGIAN, getKuotaKategori } from "@/pages/UndianBagian";
 
@@ -252,9 +252,18 @@ const ShohibulDaftar = () => {
 
       // ── Sinkronisasi otomatis ke tabel mustahiq ──────────────────────────
       {
-        const { data: allMustahiq } = await supabase.from("mustahiq").select("id");
-        const nextNo = (allMustahiq?.length ?? 0) + 1;
-        const nomor_kupon = generateNomorKupon(nextNo);
+        const isSapiHewan = selectedHewan!.jenis_hewan === "sapi";
+        const prefix = isSapiHewan ? "SS" : "SK";
+
+        // Hitung nomor urut berikutnya untuk prefix ini
+        const { data: existingKupon } = await supabase
+          .from("mustahiq")
+          .select("nomor_kupon")
+          .like("nomor_kupon", `${prefix}-%`)
+          .eq("status_lainnya", "shohibul_qurban");
+        const nextNo = (existingKupon?.length ?? 0) + 1;
+        const nomor_kupon = `${prefix}-${String(nextNo).padStart(3, "0")}`;
+
         await supabase.from("mustahiq").insert({
           nama,
           nomor_kupon,
