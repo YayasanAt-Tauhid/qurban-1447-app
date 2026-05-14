@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Printer, ScanLine, Eye, FileUp, FileDown, CheckCircle2, XCircle } from "lucide-react";
 import * as XLSX from "xlsx";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { generateNomorKupon } from "@/lib/qurban-utils";
 import { QRCodeCanvas } from "qrcode.react";
@@ -254,28 +254,29 @@ const MustahiqPage = () => {
   const handleCloseScan = (open: boolean) => { if (!open) { setScanState("scanning"); setScanResult(null); setScanError(""); } setShowScan(open); };
 
   // ── QR Scanner via html5-qrcode ──
-  const stopScanner = useCallback(async () => {
-    try {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      const instance = new Html5Qrcode("qr-reader");
-      if (instance.isScanning) await instance.stop();
-      instance.clear();
-    } catch { /* ignore */ }
-  }, []);
+  const scanningRef = useRef(false);
 
   useEffect(() => {
     if (!showScan || scanState !== "scanning") return;
+    scanningRef.current = false;
     let scanner: any;
     import("html5-qrcode").then(({ Html5Qrcode }) => {
       scanner = new Html5Qrcode("qr-reader");
       scanner.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText: string) => { verifyKuponMutation.mutate(decodedText); },
+        (decodedText: string) => {
+          if (scanningRef.current) return; // cegah scan ganda
+          scanningRef.current = true;
+          scanner.stop().catch(() => {});
+          verifyKuponMutation.mutate(decodedText);
+        },
         () => {}
       ).catch(() => {});
     });
-    return () => { if (scanner) { try { scanner.stop().then(() => scanner.clear()); } catch { /* ignore */ } } };
+    return () => {
+      if (scanner) { try { scanner.stop().then(() => scanner.clear()).catch(() => {}); } catch { /* ignore */ } }
+    };
   }, [showScan, scanState, scanKey]);
   const kuponMustahiq = selected ? kuponList.find((k: any) => k.mustahiq_id === selected.id) : null;
 
@@ -573,13 +574,8 @@ const MustahiqPage = () => {
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Scan Kupon</DialogTitle></DialogHeader>
           {scanState === "scanning" && (
-            <div className="space-y-3">
+            <div>
               <div id="qr-reader" className="w-full rounded-lg overflow-hidden" />
-              <p className="text-xs text-center text-muted-foreground">— atau ketik manual —</p>
-              <Input placeholder="Nomor kupon..." autoFocus onKeyDown={(e) => {
-                if (e.key === "Enter") { const v = (e.target as HTMLInputElement).value.trim(); if (v) verifyKuponMutation.mutate(v); }
-              }} />
-              <p className="text-xs text-muted-foreground text-center">Tekan Enter untuk verifikasi manual</p>
             </div>
           )}
           {scanState === "success" && (
