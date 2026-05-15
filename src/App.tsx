@@ -25,6 +25,7 @@ import KeuanganPage from "./pages/KeuanganPage";
 import UndianBagian from "./pages/UndianBagian";
 import UndianHasil from "./pages/UndianHasil"; // ← BARU: halaman publik hasil undian
 import CetakLabelPage from "./pages/CetakLabelPage";
+import CetakLabelDuaPage from "./pages/CetakLabelDuaPage";
 import CetakDokumenPage from "./pages/CetakDokumenPage";
 import NotFound from "./pages/NotFound";
 
@@ -69,6 +70,7 @@ const App = () => (
             <Route path="/distribusi" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_kupon", "admin_hewan"]}><DistribusiPage /></RoleGuard></ProtectedLayout>} />
             <Route path="/laporan" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_keuangan"]}><LaporanPage /></RoleGuard></ProtectedLayout>} />
             <Route path="/cetak-label" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_pendaftaran", "admin_kupon"]}><CetakLabelPage /></RoleGuard></ProtectedLayout>} />
+            <Route path="/cetak-label-dua" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_pendaftaran", "admin_kupon"]}><CetakLabelDuaPage /></RoleGuard></ProtectedLayout>} />
             <Route path="/cetak-dokumen" element={<ProtectedLayout><RoleGuard allowedRoles={["super_admin", "admin_pendaftaran", "admin_hewan", "admin_kupon"]}><CetakDokumenPage /></RoleGuard></ProtectedLayout>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

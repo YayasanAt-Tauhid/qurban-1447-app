@@ -37,6 +37,7 @@ const menuItems: { title: string; url: string; icon: any; allowedRoles?: RolePan
   { title: "Distribusi", url: "/distribusi", icon: Truck, allowedRoles: ["super_admin", "admin_kupon", "admin_hewan"] },
   { title: "Laporan", url: "/laporan", icon: FileText, allowedRoles: ["super_admin", "admin_keuangan"] },
   { title: "Cetak Label", url: "/cetak-label", icon: Tag, allowedRoles: ["super_admin", "admin_pendaftaran", "admin_kupon"] },
+  { title: "Cetak Label Kambing", url: "/cetak-label-dua", icon: Tag, allowedRoles: ["super_admin", "admin_pendaftaran", "admin_kupon"] },
   { title: "Cetak Dokumen Hewan", url: "/cetak-dokumen", icon: ClipboardList, allowedRoles: ["super_admin", "admin_pendaftaran", "admin_hewan", "admin_kupon"] },
 ];
 
