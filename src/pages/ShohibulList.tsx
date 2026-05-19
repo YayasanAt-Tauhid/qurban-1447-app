@@ -15,42 +15,54 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import ImportExcelDialog from "@/components/ImportExcelDialog";
 
-/* ─── Cetak Daftar Shohibul Sapi (Landscape) ─── */
+/* ─── Cetak Daftar Shohibul Sapi — 1 halaman per sapi ─── */
 function cetakDaftarSapi(rows: any[]) {
-  const sorted = [...rows].sort((a, b) => {
-    const na = (a.hewan_qurban as any)?.nomor_urut ?? "";
-    const nb = (b.hewan_qurban as any)?.nomor_urut ?? "";
-    return na.localeCompare(nb, undefined, { numeric: true });
+  // Group by hewan
+  const grouped: Record<string, { nomorHewan: string; tipe: string; shohibulList: string[] }> = {};
+  rows.forEach((s) => {
+    const hid = (s.hewan_qurban as any)?.nomor_urut ?? "Tidak diketahui";
+    if (!grouped[hid]) {
+      grouped[hid] = { nomorHewan: hid, tipe: s.tipe_kepemilikan ?? "", shohibulList: [] };
+    }
+    grouped[hid].shohibulList.push(s.nama);
   });
-  const rowsHtml = sorted
-    .map(
-      (s, i) => `<tr>
-        <td style="border:1px solid #000;padding:6px 8px;text-align:center;">${i + 1}</td>
-        <td style="border:1px solid #000;padding:6px 8px;">${s.nama}</td>
+
+  const sapiList = Object.values(grouped).sort((a, b) =>
+    a.nomorHewan.localeCompare(b.nomorHewan, undefined, { numeric: true })
+  );
+
+  const halamanHtml = sapiList.map((sapi, idx) => {
+    const isLast = idx === sapiList.length - 1;
+    const badge = sapi.tipe === "kolektif"
+      ? `Kolektif — ${sapi.shohibulList.length} Shohibul`
+      : `Individu — 1 Shohibul`;
+    const namaRows = sapi.shohibulList.map((nama, i) =>
+      `<tr style="background:${i % 2 === 0 ? "#fff" : "#f3f3f3"}">
+        <td style="border:1px solid #999;padding:8px 12px;text-align:center;font-size:16px;color:#888;width:40px;">${i + 1}.</td>
+        <td style="border:1px solid #999;border-left:none;padding:8px 14px;font-size:22px;">${nama}</td>
       </tr>`
-    )
-    .join("");
+    ).join("");
+    return `
+      <div style="padding:12mm 8mm;min-height:270mm;box-sizing:border-box;${isLast ? "" : "page-break-after:always;"}">
+        <div style="border:2px solid #1a4a7a;background:#dbe9f7;padding:10px;text-align:center;margin-bottom:8px;">
+          <div style="font-size:30px;font-weight:bold;">${sapi.nomorHewan}</div>
+          <div style="font-size:12px;font-weight:bold;color:${sapi.tipe === "kolektif" ? "#1a5c1a" : "#7a4a00"};background:${sapi.tipe === "kolektif" ? "#d4edda" : "#fff3cd"};display:inline-block;padding:2px 12px;border-radius:10px;margin-top:4px;">${badge}</div>
+        </div>
+        <div style="font-size:12px;font-weight:bold;color:#555;margin-bottom:5px;">Daftar Shohibul Qurban</div>
+        <table style="width:100%;border-collapse:collapse;">
+          <tbody>${namaRows || `<tr><td colspan="2" style="border:1px solid #ddd;padding:12px;text-align:center;color:#aaa;font-style:italic;">Belum ada shohibul</td></tr>`}</tbody>
+        </table>
+      </div>`;
+  }).join("");
+
   const w = window.open("", "_blank");
   if (!w) return;
-  w.document.write(`<html><head><title>Daftar Shohibul Qurban Sapi</title>
+  w.document.write(`<html><head><title>Cetak Nama Shohibul Qurban Sapi</title>
     <style>
-      @page { size: A4 landscape; margin: 10mm 12mm; }
-      body { font-family: Arial, sans-serif; margin: 0; padding: 0; font-size: 20px; color: #000; }
-      h1 { text-align: center; font-size: 30px; margin: 0 0 18px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
-      table { width: 100%; border-collapse: collapse; font-size: 20px; }
-      thead tr { background: #d0d0d0; }
-      th { border: 1px solid #000; padding: 10px 12px; text-align: left; font-size: 22px; }
-      th:first-child { width: 70px; text-align: center; }
-      td:first-child { text-align: center; }
+      @page { size: A4 portrait; margin: 0; }
+      body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #000; }
       @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-    </style>
-    </head><body>
-    <h1>Daftar Nama Shohibul Qurban Sapi</h1>
-    <table>
-      <thead><tr><th>No.</th><th>Nama Shohibul Qurban Sapi</th></tr></thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
-    </body></html>`);
+    </style></head><body>${halamanHtml}</body></html>`);
   w.document.close();
   w.focus();
   setTimeout(() => { w.print(); w.close(); }, 400);
@@ -69,7 +81,7 @@ function cetakDaftarKambing(rows: any[]) {
         <td style="border:1px solid #000;padding:5px 7px;text-align:center;">${i + 1}</td>
         <td style="border:1px solid #000;padding:5px 7px;">${s.nama}</td>
         <td style="border:1px solid #000;padding:5px 7px;text-align:center;">${(s.hewan_qurban as any)?.nomor_urut ?? "-"}</td>
-        <td style="border:1px solid #000;padding:5px 7px;">&nbsp;</td>
+        <td style="border:1px solid #000;padding:5px 7px;">${s.status_penyembelihan === "sendiri" ? "Menyembelih Sendiri (Pinjam Pisau)" : "Diwakilkan Panitia"}</td>
       </tr>`
     )
     .join("");
@@ -96,7 +108,7 @@ function cetakDaftarKambing(rows: any[]) {
         <th>No.</th>
         <th>Nama Shohibul Qurban Kambing</th>
         <th>Nomor Kambing</th>
-        <th>Penyembelih (Diwakilkan Panitia / Menyembelih Sendiri (Pinjam Pisau))</th>
+        <th>Penyembelih</th>
       </tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>
@@ -112,11 +124,15 @@ const ShohibulTable = ({
   isAdmin,
   onToggleAkad,
   onToggleStatus,
+  onChangePenyembelih,
+  showPenyembelih,
 }: {
   rows: any[];
   isAdmin: () => boolean;
   onToggleAkad: (id: string, current: boolean) => void;
   onToggleStatus: (id: string, current: string) => void;
+  onChangePenyembelih?: (id: string, value: string) => void;
+  showPenyembelih?: boolean;
 }) => (
   <div className="table-container">
     <Table>
@@ -127,6 +143,7 @@ const ShohibulTable = ({
           <TableHead>Hewan</TableHead>
           <TableHead>No. WA</TableHead>
           <TableHead>Tipe</TableHead>
+          {showPenyembelih && <TableHead>Penyembelih</TableHead>}
           <TableHead>Akad</TableHead>
           <TableHead>Status</TableHead>
         </TableRow>
@@ -134,7 +151,7 @@ const ShohibulTable = ({
       <TableBody>
         {rows.length === 0 && (
           <TableRow>
-            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+            <TableCell colSpan={showPenyembelih ? 8 : 7} className="text-center py-8 text-muted-foreground">
               Belum ada data shohibul
             </TableCell>
           </TableRow>
@@ -166,6 +183,24 @@ const ShohibulTable = ({
               ) : "-"}
             </TableCell>
             <TableCell className="capitalize">{s.tipe_kepemilikan}</TableCell>
+            {showPenyembelih && (
+              <TableCell>
+                {isAdmin() ? (
+                  <select
+                    value={s.status_penyembelihan ?? "diwakilkan"}
+                    onChange={(e) => onChangePenyembelih?.(s.id, e.target.value)}
+                    className="border rounded px-2 py-1 text-sm bg-background"
+                  >
+                    <option value="diwakilkan">Diwakilkan Panitia</option>
+                    <option value="sendiri">Sendiri (Pinjam Pisau)</option>
+                  </select>
+                ) : (
+                  <span className="text-sm">
+                    {s.status_penyembelihan === "sendiri" ? "Sendiri (Pinjam Pisau)" : "Diwakilkan Panitia"}
+                  </span>
+                )}
+              </TableCell>
+            )}
             <TableCell>
               <button
                 onClick={() => isAdmin() && onToggleAkad(s.id, !!s.akad_dilakukan)}
@@ -248,6 +283,21 @@ const ShohibulList = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
+  const penyembelihMutation = useMutation({
+    mutationFn: async ({ id, value }: { id: string; value: string }) => {
+      const { error } = await supabase
+        .from("shohibul_qurban")
+        .update({ status_penyembelihan: value as any })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shohibul-list"] });
+      toast.success("Status penyembelih disimpan");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
   const handleImport = async (rows: Record<string, any>[]) => {
     const hewanMap = new Map(hewanList?.map((h) => [h.nomor_urut.toLowerCase(), h.id]) ?? []);
     const inserts = rows.map((r) => {
@@ -286,6 +336,8 @@ const ShohibulList = () => {
     toggleAkadMutation.mutate({ id, current });
   const handleToggleStatus = (id: string, current: string) =>
     toggleStatusMutation.mutate({ id, current });
+  const handleChangePenyembelih = (id: string, value: string) =>
+    penyembelihMutation.mutate({ id, value });
 
   return (
     <div className="space-y-6">
@@ -367,6 +419,8 @@ const ShohibulList = () => {
               isAdmin={isAdmin}
               onToggleAkad={handleToggleAkad}
               onToggleStatus={handleToggleStatus}
+              onChangePenyembelih={handleChangePenyembelih}
+              showPenyembelih
             />
           </TabsContent>
           <TabsContent value="semua">
