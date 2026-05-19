@@ -37,10 +37,27 @@ function cetakDaftarSapi(rows: any[]) {
     const badge = sapi.tipe === "kolektif"
       ? `Kolektif &mdash; ${sapi.shohibulList.length} Shohibul`
       : `Individu &mdash; 1 Shohibul`;
+
+    // Hitung font size dinamis agar tabel memenuhi halaman landscape
+    // Tinggi halaman landscape A4 setelah margin 10mm atas-bawah ≈ 190mm
+    // Di @96dpi: 190mm × (96/25.4) ≈ 719px
+    // Dikurangi: header sapi ~90px + badge ~0 (sudah include) + sub-judul ~24px + border tabel ~2px
+    // Sisa untuk baris tabel ≈ 600px
+    const jumlah = sapi.shohibulList.length || 1;
+    const availablePx = 600;
+    // Tinggi 1 baris = paddingV*2 + fontSize*1.2 (line-height)
+    // Target: jumlah baris × rowHeight = availablePx
+    // rowHeight = availablePx / jumlah
+    // fontSize = (rowHeight - paddingV*2) / 1.2, dengan paddingV = fontSize * 0.4
+    // → fontSize = rowHeight / (1.2 + 0.8) = rowHeight / 2
+    const rowHeight = availablePx / jumlah;
+    const fontSize = Math.min(72, Math.max(20, Math.floor(rowHeight / 2)));
+    const paddingV = Math.max(6, Math.floor(fontSize * 0.4));
+
     const namaRows = sapi.shohibulList.map((nama, i) =>
       `<tr class="${i % 2 === 0 ? "even" : "odd"}">
-        <td class="no">${i + 1}.</td>
-        <td class="nama">${nama}</td>
+        <td class="no" style="font-size:${Math.round(fontSize * 0.7)}px;padding:${paddingV}px 12px;">${i + 1}.</td>
+        <td class="nama" style="font-size:${fontSize}px;padding:${paddingV}px 16px;">${nama}</td>
       </tr>`
     ).join("");
     return `
