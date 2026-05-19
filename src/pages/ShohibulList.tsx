@@ -64,11 +64,11 @@ function cetakDaftarSapi(rows: any[]) {
     <title>Cetak Nama Shohibul Qurban Sapi</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      @page { size: A4 portrait; margin: 12mm 8mm; }
+      @page { size: A4 landscape; margin: 10mm 12mm; }
       body { font-family: Arial, sans-serif; color: #000; background: #fff; }
       section {
         width: 100%;
-        min-height: calc(297mm - 24mm);
+        min-height: calc(210mm - 20mm);
         display: block;
         page-break-after: always;
         break-after: page;
