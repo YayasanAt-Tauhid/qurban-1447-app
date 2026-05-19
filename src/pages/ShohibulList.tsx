@@ -17,14 +17,15 @@ import ImportExcelDialog from "@/components/ImportExcelDialog";
 
 /* ─── Cetak Daftar Shohibul Sapi — 1 halaman per sapi ─── */
 function cetakDaftarSapi(rows: any[]) {
-  // Group by hewan
+  // Group by hewan_id agar sapi berbeda tidak ter-merge walau nomor_urut mirip
   const grouped: Record<string, { nomorHewan: string; tipe: string; shohibulList: string[] }> = {};
   rows.forEach((s) => {
-    const hid = (s.hewan_qurban as any)?.nomor_urut ?? "Tidak diketahui";
-    if (!grouped[hid]) {
-      grouped[hid] = { nomorHewan: hid, tipe: s.tipe_kepemilikan ?? "", shohibulList: [] };
+    const key = s.hewan_id ?? (s.hewan_qurban as any)?.nomor_urut ?? "Tidak diketahui";
+    const nomorUrut = (s.hewan_qurban as any)?.nomor_urut ?? "Tidak diketahui";
+    if (!grouped[key]) {
+      grouped[key] = { nomorHewan: nomorUrut, tipe: s.tipe_kepemilikan ?? "", shohibulList: [] };
     }
-    grouped[hid].shohibulList.push(s.nama);
+    grouped[key].shohibulList.push(s.nama);
   });
 
   const sapiList = Object.values(grouped).sort((a, b) =>
@@ -328,8 +329,10 @@ const ShohibulList = () => {
   const applySearch = (list: any[]) =>
     list.filter((s) => s.nama.toLowerCase().includes(search.toLowerCase()));
 
-  const sapiRows    = applySearch(data?.filter((s) => (s.hewan_qurban as any)?.jenis_hewan === "sapi")    ?? []);
-  const kambingRows = applySearch(data?.filter((s) => (s.hewan_qurban as any)?.jenis_hewan === "kambing") ?? []);
+  const sapiAll     = data?.filter((s) => (s.hewan_qurban as any)?.jenis_hewan === "sapi")    ?? [];
+  const kambingAll  = data?.filter((s) => (s.hewan_qurban as any)?.jenis_hewan === "kambing") ?? [];
+  const sapiRows    = applySearch(sapiAll);
+  const kambingRows = applySearch(kambingAll);
   const semuaRows   = applySearch(data ?? []);
 
   const handleToggleAkad = (id: string, current: boolean) =>
@@ -353,16 +356,16 @@ const ShohibulList = () => {
             </Button>
             <Button
               variant="outline"
-              onClick={() => cetakDaftarSapi(sapiRows)}
-              disabled={sapiRows.length === 0}
-              title="Cetak daftar shohibul qurban sapi (landscape)"
+              onClick={() => cetakDaftarSapi(sapiAll)}
+              disabled={sapiAll.length === 0}
+              title="Cetak daftar shohibul qurban sapi (portrait, 1 halaman per sapi)"
             >
               <Printer className="mr-2 h-4 w-4" /> Cetak Daftar Sapi
             </Button>
             <Button
               variant="outline"
-              onClick={() => cetakDaftarKambing(kambingRows)}
-              disabled={kambingRows.length === 0}
+              onClick={() => cetakDaftarKambing(kambingAll)}
+              disabled={kambingAll.length === 0}
               title="Cetak daftar shohibul qurban kambing (portrait)"
             >
               <Printer className="mr-2 h-4 w-4" /> Cetak Daftar Kambing
