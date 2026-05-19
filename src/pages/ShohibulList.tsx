@@ -17,10 +17,10 @@ import ImportExcelDialog from "@/components/ImportExcelDialog";
 
 /* ─── Cetak Daftar Shohibul Sapi — 1 halaman per sapi ─── */
 function cetakDaftarSapi(rows: any[]) {
-  // Group by hewan_id agar sapi berbeda tidak ter-merge walau nomor_urut mirip
+  // Group by hewan_id agar sapi berbeda tidak ter-merge
   const grouped: Record<string, { nomorHewan: string; tipe: string; shohibulList: string[] }> = {};
   rows.forEach((s) => {
-    const key = s.hewan_id ?? (s.hewan_qurban as any)?.nomor_urut ?? "Tidak diketahui";
+    const key = s.hewan_id ?? (s.hewan_qurban as any)?.nomor_urut ?? "unknown";
     const nomorUrut = (s.hewan_qurban as any)?.nomor_urut ?? "Tidak diketahui";
     if (!grouped[key]) {
       grouped[key] = { nomorHewan: nomorUrut, tipe: s.tipe_kepemilikan ?? "", shohibulList: [] };
@@ -32,41 +32,82 @@ function cetakDaftarSapi(rows: any[]) {
     a.nomorHewan.localeCompare(b.nomorHewan, undefined, { numeric: true })
   );
 
-  const halamanHtml = sapiList.map((sapi, idx) => {
-    const isLast = idx === sapiList.length - 1;
+  // Setiap sapi dibungkus <section> — lebih andal untuk page-break di semua browser
+  const halamanHtml = sapiList.map((sapi) => {
     const badge = sapi.tipe === "kolektif"
-      ? `Kolektif — ${sapi.shohibulList.length} Shohibul`
-      : `Individu — 1 Shohibul`;
+      ? `Kolektif &mdash; ${sapi.shohibulList.length} Shohibul`
+      : `Individu &mdash; 1 Shohibul`;
     const namaRows = sapi.shohibulList.map((nama, i) =>
-      `<tr style="background:${i % 2 === 0 ? "#fff" : "#f3f3f3"}">
-        <td style="border:1px solid #999;padding:8px 12px;text-align:center;font-size:16px;color:#888;width:40px;">${i + 1}.</td>
-        <td style="border:1px solid #999;border-left:none;padding:8px 14px;font-size:22px;">${nama}</td>
+      `<tr class="${i % 2 === 0 ? "even" : "odd"}">
+        <td class="no">${i + 1}.</td>
+        <td class="nama">${nama}</td>
       </tr>`
     ).join("");
     return `
-      <div style="padding:12mm 8mm;min-height:270mm;box-sizing:border-box;${isLast ? "" : "page-break-after:always;"}">
-        <div style="border:2px solid #1a4a7a;background:#dbe9f7;padding:10px;text-align:center;margin-bottom:8px;">
-          <div style="font-size:30px;font-weight:bold;">${sapi.nomorHewan}</div>
-          <div style="font-size:12px;font-weight:bold;color:${sapi.tipe === "kolektif" ? "#1a5c1a" : "#7a4a00"};background:${sapi.tipe === "kolektif" ? "#d4edda" : "#fff3cd"};display:inline-block;padding:2px 12px;border-radius:10px;margin-top:4px;">${badge}</div>
+      <section>
+        <div class="header-sapi">
+          <div class="nomor">${sapi.nomorHewan}</div>
+          <div class="badge ${sapi.tipe === "kolektif" ? "kolektif" : "individu"}">${badge}</div>
         </div>
-        <div style="font-size:12px;font-weight:bold;color:#555;margin-bottom:5px;">Daftar Shohibul Qurban</div>
-        <table style="width:100%;border-collapse:collapse;">
-          <tbody>${namaRows || `<tr><td colspan="2" style="border:1px solid #ddd;padding:12px;text-align:center;color:#aaa;font-style:italic;">Belum ada shohibul</td></tr>`}</tbody>
+        <div class="sub-judul">Daftar Shohibul Qurban</div>
+        <table>
+          <tbody>
+            ${namaRows || `<tr><td colspan="2" class="kosong">Belum ada shohibul</td></tr>`}
+          </tbody>
         </table>
-      </div>`;
+      </section>`;
   }).join("");
 
   const w = window.open("", "_blank");
-  if (!w) return;
-  w.document.write(`<html><head><title>Cetak Nama Shohibul Qurban Sapi</title>
+  if (!w) { alert("Pop-up diblokir browser. Izinkan pop-up untuk halaman ini."); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Cetak Nama Shohibul Qurban Sapi</title>
     <style>
-      @page { size: A4 portrait; margin: 0; }
-      body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #000; }
-      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-    </style></head><body>${halamanHtml}</body></html>`);
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      @page { size: A4 portrait; margin: 12mm 8mm; }
+      body { font-family: Arial, sans-serif; color: #000; background: #fff; }
+      section {
+        width: 100%;
+        min-height: calc(297mm - 24mm);
+        display: block;
+        page-break-after: always;
+        break-after: page;
+      }
+      section:last-child { page-break-after: avoid; break-after: avoid; }
+      .header-sapi {
+        border: 2px solid #1a4a7a;
+        background: #dbe9f7;
+        padding: 10px;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .nomor { font-size: 30px; font-weight: bold; }
+      .badge {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: bold;
+        padding: 2px 12px;
+        border-radius: 10px;
+        margin-top: 4px;
+      }
+      .badge.kolektif { color: #1a5c1a; background: #d4edda; }
+      .badge.individu { color: #7a4a00; background: #fff3cd; }
+      .sub-judul { font-size: 12px; font-weight: bold; color: #555; margin-bottom: 6px; }
+      table { width: 100%; border-collapse: collapse; }
+      td { border: 1px solid #999; padding: 8px 12px; }
+      td.no { text-align: center; font-size: 16px; color: #888; width: 44px; }
+      td.nama { font-size: 22px; border-left: none; }
+      td.kosong { text-align: center; color: #aaa; font-style: italic; padding: 14px; }
+      tr.even { background: #fff; }
+      tr.odd  { background: #f3f3f3; }
+      @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      }
+    </style>
+    </head><body>${halamanHtml}</body></html>`);
   w.document.close();
   w.focus();
-  setTimeout(() => { w.print(); w.close(); }, 400);
+  setTimeout(() => { w.print(); w.close(); }, 600);
 }
 
 /* ─── Cetak Daftar Shohibul Kambing (Portrait) ─── */
