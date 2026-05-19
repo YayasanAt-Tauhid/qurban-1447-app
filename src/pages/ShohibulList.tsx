@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, FileUp, CheckCircle2, Circle } from "lucide-react";
+import { Plus, Search, FileUp, CheckCircle2, Circle, Printer } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -14,6 +14,97 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import ImportExcelDialog from "@/components/ImportExcelDialog";
+
+/* ─── Cetak Daftar Shohibul Sapi (Landscape) ─── */
+function cetakDaftarSapi(rows: any[]) {
+  const sorted = [...rows].sort((a, b) => {
+    const na = (a.hewan_qurban as any)?.nomor_urut ?? "";
+    const nb = (b.hewan_qurban as any)?.nomor_urut ?? "";
+    return na.localeCompare(nb, undefined, { numeric: true });
+  });
+  const rowsHtml = sorted
+    .map(
+      (s, i) => `<tr>
+        <td style="border:1px solid #000;padding:6px 8px;text-align:center;">${i + 1}</td>
+        <td style="border:1px solid #000;padding:6px 8px;">${s.nama}</td>
+      </tr>`
+    )
+    .join("");
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(`<html><head><title>Daftar Shohibul Qurban Sapi</title>
+    <style>
+      @page { size: A4 landscape; margin: 10mm 12mm; }
+      body { font-family: Arial, sans-serif; margin: 0; padding: 0; font-size: 20px; color: #000; }
+      h1 { text-align: center; font-size: 30px; margin: 0 0 18px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
+      table { width: 100%; border-collapse: collapse; font-size: 20px; }
+      thead tr { background: #d0d0d0; }
+      th { border: 1px solid #000; padding: 10px 12px; text-align: left; font-size: 22px; }
+      th:first-child { width: 70px; text-align: center; }
+      td:first-child { text-align: center; }
+      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    </style>
+    </head><body>
+    <h1>Daftar Nama Shohibul Qurban Sapi</h1>
+    <table>
+      <thead><tr><th>No.</th><th>Nama Shohibul Qurban Sapi</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); w.close(); }, 400);
+}
+
+/* ─── Cetak Daftar Shohibul Kambing (Portrait) ─── */
+function cetakDaftarKambing(rows: any[]) {
+  const sorted = [...rows].sort((a, b) => {
+    const na = (a.hewan_qurban as any)?.nomor_urut ?? "";
+    const nb = (b.hewan_qurban as any)?.nomor_urut ?? "";
+    return na.localeCompare(nb, undefined, { numeric: true });
+  });
+  const rowsHtml = sorted
+    .map(
+      (s, i) => `<tr>
+        <td style="border:1px solid #000;padding:5px 7px;text-align:center;">${i + 1}</td>
+        <td style="border:1px solid #000;padding:5px 7px;">${s.nama}</td>
+        <td style="border:1px solid #000;padding:5px 7px;text-align:center;">${(s.hewan_qurban as any)?.nomor_urut ?? "-"}</td>
+        <td style="border:1px solid #000;padding:5px 7px;">&nbsp;</td>
+      </tr>`
+    )
+    .join("");
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(`<html><head><title>Daftar Shohibul Qurban Kambing</title>
+    <style>
+      @page { size: A4 portrait; margin: 10mm 8mm; }
+      body { font-family: Arial, sans-serif; margin: 0; padding: 0; font-size: 13px; color: #000; }
+      h1 { text-align: center; font-size: 19px; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      thead tr { background: #d0d0d0; }
+      th { border: 1px solid #000; padding: 6px 8px; text-align: left; font-size: 13px; }
+      th:nth-child(1) { width: 34px; text-align: center; }
+      th:nth-child(3) { width: 100px; text-align: center; }
+      th:nth-child(4) { width: 210px; }
+      td:nth-child(3) { text-align: center; }
+      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    </style>
+    </head><body>
+    <h1>Daftar Nama Shohibul Qurban Kambing</h1>
+    <table>
+      <thead><tr>
+        <th>No.</th>
+        <th>Nama Shohibul Qurban Kambing</th>
+        <th>Nomor Kambing</th>
+        <th>Penyembelih (Diwakilkan Panitia / Menyembelih Sendiri (Pinjam Pisau))</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); w.close(); }, 400);
+}
 
 /* ─── sub-tabel yang bisa di-reuse per tab ─── */
 const ShohibulTable = ({
@@ -187,9 +278,9 @@ const ShohibulList = () => {
   const applySearch = (list: any[]) =>
     list.filter((s) => s.nama.toLowerCase().includes(search.toLowerCase()));
 
-  const sapiRows   = applySearch(data?.filter((s) => (s.hewan_qurban as any)?.jenis_hewan === "sapi")    ?? []);
+  const sapiRows    = applySearch(data?.filter((s) => (s.hewan_qurban as any)?.jenis_hewan === "sapi")    ?? []);
   const kambingRows = applySearch(data?.filter((s) => (s.hewan_qurban as any)?.jenis_hewan === "kambing") ?? []);
-  const semuaRows  = applySearch(data ?? []);
+  const semuaRows   = applySearch(data ?? []);
 
   const handleToggleAkad = (id: string, current: boolean) =>
     toggleAkadMutation.mutate({ id, current });
@@ -204,9 +295,25 @@ const ShohibulList = () => {
           <p className="page-subtitle">Daftar peserta qurban 1447H</p>
         </div>
         {isAdmin() && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setShowImport(true)}>
               <FileUp className="mr-2 h-4 w-4" /> Import Excel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => cetakDaftarSapi(sapiRows)}
+              disabled={sapiRows.length === 0}
+              title="Cetak daftar shohibul qurban sapi (landscape)"
+            >
+              <Printer className="mr-2 h-4 w-4" /> Cetak Daftar Sapi
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => cetakDaftarKambing(kambingRows)}
+              disabled={kambingRows.length === 0}
+              title="Cetak daftar shohibul qurban kambing (portrait)"
+            >
+              <Printer className="mr-2 h-4 w-4" /> Cetak Daftar Kambing
             </Button>
             <Link to="/shohibul/daftar">
               <Button><Plus className="mr-2 h-4 w-4" /> Daftarkan</Button>
