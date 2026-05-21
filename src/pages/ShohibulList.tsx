@@ -127,7 +127,108 @@ function cetakDaftarSapi(rows: any[]) {
   setTimeout(() => { w.print(); w.close(); }, 600);
 }
 
-/* ─── Cetak Daftar Shohibul Kambing (Portrait) ─── */
+/* ─── Cetak Daftar Kambing per 1 Kambing — mirip Sapi ─── */
+function cetakDaftarKambingPerHewan(rows: any[]) {
+  const grouped: Record<string, { nomorHewan: string; tipe: string; shohibulList: string[] }> = {};
+  rows.forEach((s) => {
+    const key = s.hewan_id ?? (s.hewan_qurban as any)?.nomor_urut ?? "unknown";
+    const nomorUrut = (s.hewan_qurban as any)?.nomor_urut ?? "Tidak diketahui";
+    if (!grouped[key]) {
+      grouped[key] = { nomorHewan: nomorUrut, tipe: s.tipe_kepemilikan ?? "", shohibulList: [] };
+    }
+    grouped[key].shohibulList.push(s.nama);
+  });
+
+  const kambingList = Object.values(grouped).sort((a, b) =>
+    a.nomorHewan.localeCompare(b.nomorHewan, undefined, { numeric: true })
+  );
+
+  const halamanHtml = kambingList.map((kambing) => {
+    const badge = kambing.tipe === "kolektif"
+      ? `Kolektif &mdash; ${kambing.shohibulList.length} Shohibul`
+      : `Individu &mdash; 1 Shohibul`;
+
+    const jumlah = kambing.shohibulList.length || 1;
+    const availablePx = 600;
+    const rowHeight = availablePx / jumlah;
+    const fontSize = Math.min(72, Math.max(20, Math.floor(rowHeight / 2)));
+    const paddingV = Math.max(6, Math.floor(fontSize * 0.4));
+
+    const namaRows = kambing.shohibulList.map((nama, i) =>
+      `<tr class="${i % 2 === 0 ? "even" : "odd"}">
+        <td class="no" style="font-size:${Math.round(fontSize * 0.7)}px;padding:${paddingV}px 12px;">${i + 1}.</td>
+        <td class="nama" style="font-size:${fontSize}px;padding:${paddingV}px 16px;">${nama}</td>
+      </tr>`
+    ).join("");
+
+    return `
+      <section>
+        <div class="header-hewan">
+          <div class="nomor">${kambing.nomorHewan}</div>
+          <div class="badge ${kambing.tipe === "kolektif" ? "kolektif" : "individu"}">${badge}</div>
+        </div>
+        <div class="sub-judul">Daftar Shohibul Qurban Kambing</div>
+        <table>
+          <tbody>
+            ${namaRows || `<tr><td colspan="2" class="kosong">Belum ada shohibul</td></tr>`}
+          </tbody>
+        </table>
+      </section>`;
+  }).join("");
+
+  const w = window.open("", "_blank");
+  if (!w) { alert("Pop-up diblokir browser. Izinkan pop-up untuk halaman ini."); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Cetak Nama Shohibul Qurban Kambing</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      @page { size: A4 landscape; margin: 10mm 12mm; }
+      body { font-family: Arial, sans-serif; color: #000; background: #fff; }
+      section {
+        width: 100%;
+        min-height: calc(210mm - 20mm);
+        display: block;
+        page-break-after: always;
+        break-after: page;
+      }
+      section:last-child { page-break-after: avoid; break-after: avoid; }
+      .header-hewan {
+        border: 2px solid #2d6a2d;
+        background: #d6edda;
+        padding: 10px;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .nomor { font-size: 30px; font-weight: bold; }
+      .badge {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: bold;
+        padding: 2px 12px;
+        border-radius: 10px;
+        margin-top: 4px;
+      }
+      .badge.kolektif { color: #1a5c1a; background: #d4edda; }
+      .badge.individu { color: #7a4a00; background: #fff3cd; }
+      .sub-judul { font-size: 12px; font-weight: bold; color: #555; margin-bottom: 6px; }
+      table { width: 100%; border-collapse: collapse; }
+      td { border: 1px solid #999; padding: 8px 12px; }
+      td.no { text-align: center; font-size: 16px; color: #888; width: 44px; }
+      td.nama { font-size: 22px; border-left: none; }
+      td.kosong { text-align: center; color: #aaa; font-style: italic; padding: 14px; }
+      tr.even { background: #fff; }
+      tr.odd  { background: #f3f3f3; }
+      @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      }
+    </style>
+    </head><body>${halamanHtml}</body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); w.close(); }, 600);
+}
+
+/* ─── Cetak Penyembelih Kambing (Portrait, tabel) ─── */
 function cetakDaftarKambing(rows: any[]) {
   const sorted = [...rows].sort((a, b) => {
     const na = (a.hewan_qurban as any)?.nomor_urut ?? "";
@@ -422,11 +523,19 @@ const ShohibulList = () => {
             </Button>
             <Button
               variant="outline"
-              onClick={() => cetakDaftarKambing(kambingAll)}
+              onClick={() => cetakDaftarKambingPerHewan(kambingAll)}
               disabled={kambingAll.length === 0}
-              title="Cetak daftar shohibul qurban kambing (portrait)"
+              title="Cetak daftar shohibul qurban kambing per 1 kambing (landscape, tulisan besar)"
             >
               <Printer className="mr-2 h-4 w-4" /> Cetak Daftar Kambing
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => cetakDaftarKambing(kambingAll)}
+              disabled={kambingAll.length === 0}
+              title="Cetak daftar penyembelih kambing (portrait, tabel)"
+            >
+              <Printer className="mr-2 h-4 w-4" /> Cetak Penyembelih Kambing
             </Button>
             <Link to="/shohibul/daftar">
               <Button><Plus className="mr-2 h-4 w-4" /> Daftarkan</Button>
