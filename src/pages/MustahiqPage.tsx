@@ -145,6 +145,7 @@ const MustahiqPage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [search, setSearch] = useState("");
+  const [filterPengambilan, setFilterPengambilan] = useState<"semua" | "sudah_ambil" | "belum_ambil">("semua");
   const [mainTab, setMainTab] = useState<MainTab>("mustahiq");
   const [pageMustahiq, setPageMustahiq] = useState(1);
   const [pageShohibul, setPageShohibul] = useState(1);
@@ -250,12 +251,20 @@ const MustahiqPage = () => {
   // ── Helpers ──
   const filteredMustahiq = mustahiqList.filter((m) =>
     m.status_lainnya !== "shohibul_qurban" &&
-    (!search || m.nama?.toLowerCase().includes(search.toLowerCase()) || m.nomor_kupon?.toLowerCase().includes(search.toLowerCase()))
+    (!search || m.nama?.toLowerCase().includes(search.toLowerCase()) || m.nomor_kupon?.toLowerCase().includes(search.toLowerCase())) &&
+    (filterPengambilan === "semua" || m.status_kupon === filterPengambilan)
   );
 
   const filteredShohibul = shohibulList.filter((m) =>
-    !search || m.nama?.toLowerCase().includes(search.toLowerCase()) || m.nomor_kupon?.toLowerCase().includes(search.toLowerCase())
+    (!search || m.nama?.toLowerCase().includes(search.toLowerCase()) || m.nomor_kupon?.toLowerCase().includes(search.toLowerCase())) &&
+    (filterPengambilan === "semua" || m.status_kupon === filterPengambilan)
   );
+
+  const countMustahiqBase = mustahiqList.filter((m) => m.status_lainnya !== "shohibul_qurban");
+  const countSudahMustahiq = countMustahiqBase.filter((m) => m.status_kupon === "sudah_ambil").length;
+  const countBelumMustahiq = countMustahiqBase.filter((m) => m.status_kupon === "belum_ambil").length;
+  const countSudahShohibul = shohibulList.filter((m) => m.status_kupon === "sudah_ambil").length;
+  const countBelumShohibul = shohibulList.filter((m) => m.status_kupon === "belum_ambil").length;
 
   const totalPagesMustahiq = Math.max(1, Math.ceil(filteredMustahiq.length / PAGE_SIZE));
   const totalPagesShohibul = Math.max(1, Math.ceil(filteredShohibul.length / PAGE_SIZE));
@@ -389,10 +398,42 @@ const MustahiqPage = () => {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Cari nama / nomor kupon..." className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPageMustahiq(1); setPageShohibul(1); }} />
+      {/* Search & Filter */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Cari nama / nomor kupon..." className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPageMustahiq(1); setPageShohibul(1); }} />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={filterPengambilan === "semua" ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setFilterPengambilan("semua"); setPageMustahiq(1); setPageShohibul(1); }}
+          >
+            Semua
+          </Button>
+          <Button
+            variant={filterPengambilan === "belum_ambil" ? "destructive" : "outline"}
+            size="sm"
+            onClick={() => { setFilterPengambilan("belum_ambil"); setPageMustahiq(1); setPageShohibul(1); }}
+          >
+            <XCircle className="h-4 w-4 mr-1" />
+            Belum Ambil
+            {mainTab === "mustahiq" && <span className="ml-1 rounded-full bg-background/20 px-1.5 text-xs font-semibold">{countBelumMustahiq}</span>}
+            {mainTab === "shohibul" && <span className="ml-1 rounded-full bg-background/20 px-1.5 text-xs font-semibold">{countBelumShohibul}</span>}
+          </Button>
+          <Button
+            variant={filterPengambilan === "sudah_ambil" ? "default" : "outline"}
+            size="sm"
+            className={filterPengambilan === "sudah_ambil" ? "bg-green-600 hover:bg-green-700 text-white border-green-600" : ""}
+            onClick={() => { setFilterPengambilan("sudah_ambil"); setPageMustahiq(1); setPageShohibul(1); }}
+          >
+            <CheckCircle2 className="h-4 w-4 mr-1" />
+            Sudah Ambil
+            {mainTab === "mustahiq" && <span className="ml-1 rounded-full bg-background/20 px-1.5 text-xs font-semibold">{countSudahMustahiq}</span>}
+            {mainTab === "shohibul" && <span className="ml-1 rounded-full bg-background/20 px-1.5 text-xs font-semibold">{countSudahShohibul}</span>}
+          </Button>
+        </div>
       </div>
 
       {/* Main Tabs: Mustahiq | Shohibul Qurban */}
