@@ -119,6 +119,14 @@
     @apply rounded-xl border bg-card overflow-hidden;
   }
 
+  .ledger-table {
+    border-collapse: collapse;
+  }
+  .ledger-table th,
+  .ledger-table td {
+    @apply border border-border;
+  }
+
   .islamic-pattern {
     background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 30L30 60L0 30z' fill='none' stroke='%231E6B3C' stroke-opacity='0.05' stroke-width='1'/%3E%3C/svg%3E");
   }

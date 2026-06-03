@@ -31,6 +31,7 @@ const KeuanganPage = () => {
   const [filterJenis, setFilterJenis] = useState("semua");
   const [filterMetode, setFilterMetode] = useState("semua");
   const [searchKeterangan, setSearchKeterangan] = useState("");
+  const [searchLedger, setSearchLedger] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -390,6 +391,31 @@ const KeuanganPage = () => {
     return sum + getPaymentTotal(s.id);
   }, 0) ?? 0;
 
+  // Ledger (buku kas) dengan saldo berjalan
+  const kasAscending = [...(kasList ?? [])].sort((a, b) =>
+    a.tanggal < b.tanggal ? -1 : a.tanggal > b.tanggal ? 1 : (a.created_at ?? "").localeCompare(b.created_at ?? "")
+  );
+
+  const computeLedger = (rows: typeof kasAscending) => {
+    let running = 0;
+    return rows.map((k) => {
+      running += k.jenis === "masuk" ? Number(k.jumlah) : -Number(k.jumlah);
+      return { ...k, saldoBerjalan: running };
+    });
+  };
+
+  const applyLedgerSearch = <T extends { keterangan?: string | null; kategori?: string | null }>(rows: T[]) =>
+    !searchLedger
+      ? rows
+      : rows.filter((k) =>
+          k.keterangan?.toLowerCase().includes(searchLedger.toLowerCase()) ||
+          k.kategori?.toLowerCase().includes(searchLedger.toLowerCase())
+        );
+
+  const filteredKasUmum = applyLedgerSearch(computeLedger(kasAscending));
+  const filteredKasTunai = applyLedgerSearch(computeLedger(kasAscending.filter((k) => k.metode === "tunai")));
+  const filteredKasBank = applyLedgerSearch(computeLedger(kasAscending.filter((k) => k.metode === "bank")));
+
   return (
     <div className="space-y-6">
       <div className="page-header">
@@ -433,7 +459,7 @@ const KeuanganPage = () => {
               <CardContent className="p-5 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center"><Banknote className="h-5 w-5 text-amber-600 dark:text-amber-400" /></div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Saldo Tunai</p>
+                  <p className="text-sm text-muted-foreground">Saldo Kas Pembantu Tunai</p>
                   <p className={`text-xl font-bold ${saldoTunai >= 0 ? "text-amber-600 dark:text-amber-400" : "text-destructive"}`}>{formatRupiah(saldoTunai)}</p>
                 </div>
               </CardContent>
@@ -442,34 +468,18 @@ const KeuanganPage = () => {
               <CardContent className="p-5 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center"><Landmark className="h-5 w-5 text-blue-600 dark:text-blue-400" /></div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Saldo Bank</p>
+                  <p className="text-sm text-muted-foreground">Saldo Kas Pembantu Bank</p>
                   <p className={`text-xl font-bold ${saldoBank >= 0 ? "text-blue-600 dark:text-blue-400" : "text-destructive"}`}>{formatRupiah(saldoBank)}</p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Filters + Add */}
+          {/* Actions */}
           <div className="flex flex-wrap items-center gap-3">
-            <Select value={filterJenis} onValueChange={setFilterJenis}>
-              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="semua">Semua Jenis</SelectItem>
-                <SelectItem value="masuk">Masuk</SelectItem>
-                <SelectItem value="keluar">Keluar</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterMetode} onValueChange={setFilterMetode}>
-              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="semua">Semua Metode</SelectItem>
-                <SelectItem value="tunai">Tunai</SelectItem>
-                <SelectItem value="bank">Bank</SelectItem>
-              </SelectContent>
-            </Select>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Cari keterangan..." className="pl-10 w-[200px]" value={searchKeterangan} onChange={(e) => setSearchKeterangan(e.target.value)} />
+              <Input placeholder="Cari keterangan/kategori..." className="pl-10 w-[220px]" value={searchLedger} onChange={(e) => setSearchLedger(e.target.value)} />
             </div>
             {isAdmin() && (
               <>
@@ -480,110 +490,233 @@ const KeuanganPage = () => {
                   <DialogTrigger asChild>
                     <Button><Plus className="mr-2 h-4 w-4" /> Tambah Transaksi</Button>
                   </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Tambah Transaksi</DialogTitle></DialogHeader>
-                  <div className="space-y-3">
-                    <div><Label>Tanggal</Label><Input type="date" value={formTanggal} onChange={(e) => setFormTanggal(e.target.value)} /></div>
-                    <div>
-                      <Label>Jenis</Label>
-                      <RadioGroup value={formJenis} onValueChange={(v) => setFormJenis(v as any)} className="flex gap-4 mt-1">
-                        <div className="flex items-center gap-2"><RadioGroupItem value="masuk" id="j-masuk" /><Label htmlFor="j-masuk">Masuk</Label></div>
-                        <div className="flex items-center gap-2"><RadioGroupItem value="keluar" id="j-keluar" /><Label htmlFor="j-keluar">Keluar</Label></div>
-                      </RadioGroup>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle>Tambah Transaksi</DialogTitle></DialogHeader>
+                    <div className="space-y-3">
+                      <div><Label>Tanggal</Label><Input type="date" value={formTanggal} onChange={(e) => setFormTanggal(e.target.value)} /></div>
+                      <div>
+                        <Label>Jenis</Label>
+                        <RadioGroup value={formJenis} onValueChange={(v) => setFormJenis(v as any)} className="flex gap-4 mt-1">
+                          <div className="flex items-center gap-2"><RadioGroupItem value="masuk" id="j-masuk" /><Label htmlFor="j-masuk">Masuk</Label></div>
+                          <div className="flex items-center gap-2"><RadioGroupItem value="keluar" id="j-keluar" /><Label htmlFor="j-keluar">Keluar</Label></div>
+                        </RadioGroup>
+                      </div>
+                      <div>
+                        <Label>Metode</Label>
+                        <RadioGroup value={formMetode} onValueChange={(v) => setFormMetode(v as any)} className="flex gap-4 mt-1">
+                          <div className="flex items-center gap-2"><RadioGroupItem value="tunai" id="m-tunai" /><Label htmlFor="m-tunai">Tunai</Label></div>
+                          <div className="flex items-center gap-2"><RadioGroupItem value="bank" id="m-bank" /><Label htmlFor="m-bank">Bank</Label></div>
+                        </RadioGroup>
+                      </div>
+                      <div>
+                        <Label>Kategori</Label>
+                        <Input value={formKategori} onChange={(e) => setFormKategori(e.target.value)} placeholder="Ketik kategori..." list="kategori-list" />
+                        <datalist id="kategori-list">
+                          {KATEGORI_SUGGESTIONS.map((k) => <option key={k} value={k} />)}
+                        </datalist>
+                      </div>
+                      <div><Label>Keterangan</Label><Textarea value={formKeterangan} onChange={(e) => setFormKeterangan(e.target.value)} /></div>
+                      <div><Label>Jumlah (Rp)</Label><Input type="number" value={formJumlah} onChange={(e) => setFormJumlah(e.target.value)} placeholder="0" /></div>
+                      <Button className="w-full" onClick={() => insertMutation.mutate()} disabled={insertMutation.isPending || !formJumlah}>
+                        {insertMutation.isPending ? "Menyimpan..." : "Simpan"}
+                      </Button>
                     </div>
-                    <div>
-                      <Label>Metode</Label>
-                      <RadioGroup value={formMetode} onValueChange={(v) => setFormMetode(v as any)} className="flex gap-4 mt-1">
-                        <div className="flex items-center gap-2"><RadioGroupItem value="tunai" id="m-tunai" /><Label htmlFor="m-tunai">Tunai</Label></div>
-                        <div className="flex items-center gap-2"><RadioGroupItem value="bank" id="m-bank" /><Label htmlFor="m-bank">Bank</Label></div>
-                      </RadioGroup>
-                    </div>
-                    <div>
-                      <Label>Kategori</Label>
-                      <Input value={formKategori} onChange={(e) => setFormKategori(e.target.value)} placeholder="Ketik kategori..." list="kategori-list" />
-                      <datalist id="kategori-list">
-                        {KATEGORI_SUGGESTIONS.map((k) => <option key={k} value={k} />)}
-                      </datalist>
-                    </div>
-                    <div><Label>Keterangan</Label><Textarea value={formKeterangan} onChange={(e) => setFormKeterangan(e.target.value)} /></div>
-                    <div><Label>Jumlah (Rp)</Label><Input type="number" value={formJumlah} onChange={(e) => setFormJumlah(e.target.value)} placeholder="0" /></div>
-                    <Button className="w-full" onClick={() => insertMutation.mutate()} disabled={insertMutation.isPending || !formJumlah}>
-                      {insertMutation.isPending ? "Menyimpan..." : "Simpan"}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogContent>
+                </Dialog>
               </>
             )}
           </div>
 
-          {/* Table */}
-          {isLoading ? <Skeleton className="h-48 w-full" /> : (
-            <div className="table-container">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">No</TableHead>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Jenis</TableHead>
-                    <TableHead>Metode</TableHead>
-                    <TableHead>Kategori</TableHead>
-                    <TableHead>Keterangan</TableHead>
-                    <TableHead className="text-right">Jumlah</TableHead>
-                    {isAdmin() && <TableHead className="w-20">Aksi</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered?.length === 0 && (
-                    <TableRow><TableCell colSpan={isAdmin() ? 8 : 7} className="text-center py-8 text-muted-foreground">Belum ada transaksi</TableCell></TableRow>
-                  )}
-                  {filtered?.map((k, idx) => (
-                    <TableRow key={k.id}>
-                      <TableCell>{idx + 1}</TableCell>
-                      <TableCell>{formatTanggal(k.tanggal)}</TableCell>
-                      <TableCell>
-                        <Badge className={k.jenis === "masuk" ? "bg-success/10 text-success border-success/20" : "bg-destructive/10 text-destructive border-destructive/20"}>
-                          {k.jenis}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="capitalize">{k.metode}</TableCell>
-                      <TableCell>{k.kategori ?? "-"}</TableCell>
-                      <TableCell className="max-w-[200px] whitespace-normal break-words">{k.keterangan ?? "-"}</TableCell>
-                      <TableCell className="text-right font-semibold">{formatRupiah(Number(k.jumlah))}</TableCell>
-                      {isAdmin() && (
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditDialog(k)}>
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Hapus Transaksi?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    {k.keterangan ?? k.kategori ?? "Transaksi ini"} sebesar {formatRupiah(Number(k.jumlah))} akan dihapus permanen.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Batal</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => deleteMutation.mutate(k.id)} className="bg-destructive text-destructive-foreground">Hapus</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
+          {/* Nested Buku Kas Tabs */}
+          <Tabs defaultValue="kas-umum">
+            <TabsList>
+              <TabsTrigger value="kas-umum">Buku Kas Umum</TabsTrigger>
+              <TabsTrigger value="kas-tunai">Kas Pembantu Tunai</TabsTrigger>
+              <TabsTrigger value="kas-bank">Kas Pembantu Bank</TabsTrigger>
+            </TabsList>
+
+            {/* Buku Kas Umum */}
+            <TabsContent value="kas-umum">
+              {isLoading ? <Skeleton className="h-48 w-full mt-4" /> : (
+                <div className="table-container mt-4">
+                  <Table className="ledger-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">No</TableHead>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead>Uraian</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead>Metode</TableHead>
+                        <TableHead className="text-right">Debet</TableHead>
+                        <TableHead className="text-right">Kredit</TableHead>
+                        <TableHead className="text-right">Saldo</TableHead>
+                        {isAdmin() && <TableHead className="w-20">Aksi</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredKasUmum.length === 0 && (
+                        <TableRow><TableCell colSpan={isAdmin() ? 9 : 8} className="text-center py-8 text-muted-foreground">Belum ada transaksi</TableCell></TableRow>
                       )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                      {filteredKasUmum.map((k, idx) => (
+                        <TableRow key={k.id}>
+                          <TableCell>{idx + 1}</TableCell>
+                          <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
+                          <TableCell className="max-w-[160px] whitespace-normal break-words">{k.keterangan ?? "-"}</TableCell>
+                          <TableCell>{k.kategori ?? "-"}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-xs capitalize">{k.metode}</Badge></TableCell>
+                          <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                          <TableCell className="text-right font-semibold text-destructive">{k.jenis === "keluar" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                          <TableCell className={`text-right font-bold ${k.saldoBerjalan >= 0 ? "text-info" : "text-destructive"}`}>{formatRupiah(k.saldoBerjalan)}</TableCell>
+                          {isAdmin() && (
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditDialog(k)}><Edit2 className="h-3.5 w-3.5" /></Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Hapus Transaksi?</AlertDialogTitle>
+                                      <AlertDialogDescription>{k.keterangan ?? k.kategori ?? "Transaksi ini"} sebesar {formatRupiah(Number(k.jumlah))} akan dihapus permanen.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Batal</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteMutation.mutate(k.id)} className="bg-destructive text-destructive-foreground">Hapus</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Kas Pembantu Tunai */}
+            <TabsContent value="kas-tunai">
+              {isLoading ? <Skeleton className="h-48 w-full mt-4" /> : (
+                <div className="table-container mt-4">
+                  <Table className="ledger-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">No</TableHead>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead>Uraian</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead className="text-right">Debet</TableHead>
+                        <TableHead className="text-right">Kredit</TableHead>
+                        <TableHead className="text-right">Saldo</TableHead>
+                        {isAdmin() && <TableHead className="w-20">Aksi</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredKasTunai.length === 0 && (
+                        <TableRow><TableCell colSpan={isAdmin() ? 8 : 7} className="text-center py-8 text-muted-foreground">Belum ada transaksi tunai</TableCell></TableRow>
+                      )}
+                      {filteredKasTunai.map((k, idx) => (
+                        <TableRow key={k.id}>
+                          <TableCell>{idx + 1}</TableCell>
+                          <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
+                          <TableCell className="max-w-[180px] whitespace-normal break-words">{k.keterangan ?? "-"}</TableCell>
+                          <TableCell>{k.kategori ?? "-"}</TableCell>
+                          <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                          <TableCell className="text-right font-semibold text-destructive">{k.jenis === "keluar" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                          <TableCell className={`text-right font-bold ${k.saldoBerjalan >= 0 ? "text-amber-600 dark:text-amber-400" : "text-destructive"}`}>{formatRupiah(k.saldoBerjalan)}</TableCell>
+                          {isAdmin() && (
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditDialog(k)}><Edit2 className="h-3.5 w-3.5" /></Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Hapus Transaksi?</AlertDialogTitle>
+                                      <AlertDialogDescription>{k.keterangan ?? k.kategori ?? "Transaksi ini"} sebesar {formatRupiah(Number(k.jumlah))} akan dihapus permanen.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Batal</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteMutation.mutate(k.id)} className="bg-destructive text-destructive-foreground">Hapus</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Kas Pembantu Bank */}
+            <TabsContent value="kas-bank">
+              {isLoading ? <Skeleton className="h-48 w-full mt-4" /> : (
+                <div className="table-container mt-4">
+                  <Table className="ledger-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">No</TableHead>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead>Uraian</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead className="text-right">Debet</TableHead>
+                        <TableHead className="text-right">Kredit</TableHead>
+                        <TableHead className="text-right">Saldo</TableHead>
+                        {isAdmin() && <TableHead className="w-20">Aksi</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredKasBank.length === 0 && (
+                        <TableRow><TableCell colSpan={isAdmin() ? 8 : 7} className="text-center py-8 text-muted-foreground">Belum ada transaksi bank</TableCell></TableRow>
+                      )}
+                      {filteredKasBank.map((k, idx) => (
+                        <TableRow key={k.id}>
+                          <TableCell>{idx + 1}</TableCell>
+                          <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
+                          <TableCell className="max-w-[180px] whitespace-normal break-words">{k.keterangan ?? "-"}</TableCell>
+                          <TableCell>{k.kategori ?? "-"}</TableCell>
+                          <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                          <TableCell className="text-right font-semibold text-destructive">{k.jenis === "keluar" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                          <TableCell className={`text-right font-bold ${k.saldoBerjalan >= 0 ? "text-blue-600 dark:text-blue-400" : "text-destructive"}`}>{formatRupiah(k.saldoBerjalan)}</TableCell>
+                          {isAdmin() && (
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditDialog(k)}><Edit2 className="h-3.5 w-3.5" /></Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Hapus Transaksi?</AlertDialogTitle>
+                                      <AlertDialogDescription>{k.keterangan ?? k.kategori ?? "Transaksi ini"} sebesar {formatRupiah(Number(k.jumlah))} akan dihapus permanen.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Batal</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteMutation.mutate(k.id)} className="bg-destructive text-destructive-foreground">Hapus</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
 
           {/* Chart */}
           {chartData.length > 0 && (
