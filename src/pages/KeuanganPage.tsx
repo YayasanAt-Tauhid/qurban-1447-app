@@ -539,7 +539,7 @@ const KeuanganPage = () => {
             <TabsContent value="kas-umum">
               {isLoading ? <Skeleton className="h-48 w-full mt-4" /> : (
                 <div className="table-container mt-4">
-                  <Table>
+                  <Table className="ledger-table">
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-10">No</TableHead>
@@ -601,7 +601,7 @@ const KeuanganPage = () => {
             <TabsContent value="kas-tunai">
               {isLoading ? <Skeleton className="h-48 w-full mt-4" /> : (
                 <div className="table-container mt-4">
-                  <Table>
+                  <Table className="ledger-table">
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-10">No</TableHead>
@@ -661,7 +661,7 @@ const KeuanganPage = () => {
             <TabsContent value="kas-bank">
               {isLoading ? <Skeleton className="h-48 w-full mt-4" /> : (
                 <div className="table-container mt-4">
-                  <Table>
+                  <Table className="ledger-table">
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-10">No</TableHead>
