@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { formatRupiah, formatTanggal, SUMBER_HEWAN_LABEL, type SumberHewan } from "@/lib/qurban-utils";
-import { Plus, Search, TrendingUp, TrendingDown, Wallet, CreditCard, FileUp, Banknote, Landmark, Edit2, Trash2, Store } from "lucide-react";
+import { Plus, Search, Wallet, CreditCard, FileUp, Banknote, Landmark, Edit2, Trash2, Store } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import ImportExcelDialog from "@/components/ImportExcelDialog";
@@ -432,26 +432,12 @@ const KeuanganPage = () => {
 
         <TabsContent value="buku-kas" className="space-y-6">
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="p-5 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center"><TrendingUp className="h-5 w-5 text-success" /></div>
-                <div><p className="text-sm text-muted-foreground">Total Pemasukan</p><p className="text-xl font-bold text-success">{formatRupiah(totalMasuk)}</p></div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-5 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center"><TrendingDown className="h-5 w-5 text-destructive" /></div>
-                <div><p className="text-sm text-muted-foreground">Total Pengeluaran</p><p className="text-xl font-bold text-destructive">{formatRupiah(totalKeluar)}</p></div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-5 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center"><Wallet className="h-5 w-5 text-info" /></div>
-                <div><p className="text-sm text-muted-foreground">Saldo Total</p><p className="text-xl font-bold text-info">{formatRupiah(saldo)}</p></div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardContent className="p-5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center"><Wallet className="h-5 w-5 text-info" /></div>
+              <div><p className="text-sm text-muted-foreground">Saldo Total</p><p className="text-xl font-bold text-info">{formatRupiah(saldo)}</p></div>
+            </CardContent>
+          </Card>
 
           {/* Saldo per Metode */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

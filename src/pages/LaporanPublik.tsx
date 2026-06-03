@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Share2, TrendingUp, TrendingDown, Wallet, Banknote, Landmark } from "lucide-react";
+import { Share2, Wallet, Banknote, Landmark } from "lucide-react";
 import { formatRupiah, formatTanggal } from "@/lib/qurban-utils";
 
 const LaporanPublik = () => {
@@ -70,46 +70,20 @@ const LaporanPublik = () => {
 
         {/* Summary */}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
-          </div>
+          <Skeleton className="h-24 rounded-lg" />
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="p-5 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-                    <TrendingUp className="h-5 w-5 text-success" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Pemasukan</p>
-                    <p className="text-xl font-bold text-success">{formatRupiah(totalMasuk)}</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-5 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-                    <TrendingDown className="h-5 w-5 text-destructive" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Pengeluaran</p>
-                    <p className="text-xl font-bold text-destructive">{formatRupiah(totalKeluar)}</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-5 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-                    <Wallet className="h-5 w-5 text-info" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Saldo</p>
-                    <p className="text-xl font-bold text-info">{formatRupiah(saldo)}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <Card>
+              <CardContent className="p-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+                  <Wallet className="h-5 w-5 text-info" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Saldo</p>
+                  <p className="text-xl font-bold text-info">{formatRupiah(saldo)}</p>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Saldo per Metode */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
