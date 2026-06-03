@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Share2, TrendingUp, TrendingDown, Wallet, Banknote, Landmark } from "lucide-react";
 import { formatRupiah, formatTanggal } from "@/lib/qurban-utils";
 
@@ -30,6 +31,22 @@ const LaporanPublik = () => {
     if (k.metode !== "bank") return a;
     return k.jenis === "masuk" ? a + Number(k.jumlah) : a - Number(k.jumlah);
   }, 0) ?? 0;
+
+  const kasAscending = [...(kasList ?? [])].sort((a, b) =>
+    a.tanggal < b.tanggal ? -1 : a.tanggal > b.tanggal ? 1 : (a.created_at ?? "").localeCompare(b.created_at ?? "")
+  );
+
+  const computeLedger = (rows: typeof kasAscending) => {
+    let running = 0;
+    return rows.map((k) => {
+      running += k.jenis === "masuk" ? Number(k.jumlah) : -Number(k.jumlah);
+      return { ...k, saldoBerjalan: running };
+    });
+  };
+
+  const kasUmumLedger = computeLedger(kasAscending);
+  const kasTunaiLedger = computeLedger(kasAscending.filter((k) => k.metode === "tunai"));
+  const kasBankLedger = computeLedger(kasAscending.filter((k) => k.metode === "bank"));
 
   const shareWhatsApp = () => {
     const msg = `📊 Laporan Keuangan Qurban 1447H\nMasjid At-Tauhid Pangkalpinang\n\nPemasukan: ${formatRupiah(totalMasuk)}\nPengeluaran: ${formatRupiah(totalKeluar)}\nSaldo: ${formatRupiah(saldo)}\n\nLihat detail: ${window.location.href}`;
@@ -120,42 +137,133 @@ const LaporanPublik = () => {
               </Card>
             </div>
 
-            {/* Table */}
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Tanggal</TableHead>
-                        <TableHead>Keterangan</TableHead>
-                        <TableHead>Kategori</TableHead>
-                        <TableHead>Metode</TableHead>
-                        <TableHead className="text-right">Jumlah</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {kasList?.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Belum ada transaksi</TableCell>
-                        </TableRow>
-                      )}
-                      {kasList?.map((k) => (
-                        <TableRow key={k.id}>
-                          <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
-                          <TableCell className="max-w-[250px] truncate">{k.keterangan ?? "-"}</TableCell>
-                          <TableCell>{k.kategori ?? "-"}</TableCell>
-                          <TableCell className="capitalize">{k.metode ?? "-"}</TableCell>
-                          <TableCell className={`text-right font-semibold ${k.jenis === "masuk" ? "text-success" : "text-destructive"}`}>
-                            {k.jenis === "masuk" ? "+" : "-"}{formatRupiah(Number(k.jumlah))}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Buku Kas Tabs */}
+            <Tabs defaultValue="kas-umum">
+              <TabsList className="w-full">
+                <TabsTrigger value="kas-umum" className="flex-1">Buku Kas Umum</TabsTrigger>
+                <TabsTrigger value="kas-tunai" className="flex-1">Kas Pembantu Tunai</TabsTrigger>
+                <TabsTrigger value="kas-bank" className="flex-1">Kas Pembantu Bank</TabsTrigger>
+              </TabsList>
+
+              {/* Buku Kas Umum */}
+              <TabsContent value="kas-umum">
+                <Card className="mt-3">
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-10">No</TableHead>
+                            <TableHead>Tanggal</TableHead>
+                            <TableHead>Uraian</TableHead>
+                            <TableHead>Kategori</TableHead>
+                            <TableHead>Metode</TableHead>
+                            <TableHead className="text-right">Debet</TableHead>
+                            <TableHead className="text-right">Kredit</TableHead>
+                            <TableHead className="text-right">Saldo</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {kasUmumLedger.length === 0 && (
+                            <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Belum ada transaksi</TableCell></TableRow>
+                          )}
+                          {kasUmumLedger.map((k, idx) => (
+                            <TableRow key={k.id}>
+                              <TableCell>{idx + 1}</TableCell>
+                              <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
+                              <TableCell className="max-w-[180px] truncate">{k.keterangan ?? "-"}</TableCell>
+                              <TableCell>{k.kategori ?? "-"}</TableCell>
+                              <TableCell><Badge variant="outline" className="text-xs capitalize">{k.metode}</Badge></TableCell>
+                              <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                              <TableCell className="text-right font-semibold text-destructive">{k.jenis === "keluar" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                              <TableCell className={`text-right font-bold ${k.saldoBerjalan >= 0 ? "text-info" : "text-destructive"}`}>{formatRupiah(k.saldoBerjalan)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Kas Pembantu Tunai */}
+              <TabsContent value="kas-tunai">
+                <Card className="mt-3">
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-10">No</TableHead>
+                            <TableHead>Tanggal</TableHead>
+                            <TableHead>Uraian</TableHead>
+                            <TableHead>Kategori</TableHead>
+                            <TableHead className="text-right">Debet</TableHead>
+                            <TableHead className="text-right">Kredit</TableHead>
+                            <TableHead className="text-right">Saldo</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {kasTunaiLedger.length === 0 && (
+                            <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Belum ada transaksi tunai</TableCell></TableRow>
+                          )}
+                          {kasTunaiLedger.map((k, idx) => (
+                            <TableRow key={k.id}>
+                              <TableCell>{idx + 1}</TableCell>
+                              <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
+                              <TableCell className="max-w-[200px] truncate">{k.keterangan ?? "-"}</TableCell>
+                              <TableCell>{k.kategori ?? "-"}</TableCell>
+                              <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                              <TableCell className="text-right font-semibold text-destructive">{k.jenis === "keluar" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                              <TableCell className={`text-right font-bold ${k.saldoBerjalan >= 0 ? "text-amber-600 dark:text-amber-400" : "text-destructive"}`}>{formatRupiah(k.saldoBerjalan)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Kas Pembantu Bank */}
+              <TabsContent value="kas-bank">
+                <Card className="mt-3">
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-10">No</TableHead>
+                            <TableHead>Tanggal</TableHead>
+                            <TableHead>Uraian</TableHead>
+                            <TableHead>Kategori</TableHead>
+                            <TableHead className="text-right">Debet</TableHead>
+                            <TableHead className="text-right">Kredit</TableHead>
+                            <TableHead className="text-right">Saldo</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {kasBankLedger.length === 0 && (
+                            <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Belum ada transaksi bank</TableCell></TableRow>
+                          )}
+                          {kasBankLedger.map((k, idx) => (
+                            <TableRow key={k.id}>
+                              <TableCell>{idx + 1}</TableCell>
+                              <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
+                              <TableCell className="max-w-[200px] truncate">{k.keterangan ?? "-"}</TableCell>
+                              <TableCell>{k.kategori ?? "-"}</TableCell>
+                              <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                              <TableCell className="text-right font-semibold text-destructive">{k.jenis === "keluar" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
+                              <TableCell className={`text-right font-bold ${k.saldoBerjalan >= 0 ? "text-blue-600 dark:text-blue-400" : "text-destructive"}`}>{formatRupiah(k.saldoBerjalan)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </>
         )}
 
