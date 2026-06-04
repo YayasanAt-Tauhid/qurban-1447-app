@@ -125,7 +125,7 @@ const LaporanPublik = () => {
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
                       <Table className="ledger-table">
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                           <TableRow>
                             <TableHead className="w-10">No</TableHead>
                             <TableHead>Tanggal</TableHead>
@@ -166,7 +166,7 @@ const LaporanPublik = () => {
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
                       <Table className="ledger-table">
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                           <TableRow>
                             <TableHead className="w-10">No</TableHead>
                             <TableHead>Tanggal</TableHead>
@@ -205,7 +205,7 @@ const LaporanPublik = () => {
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
                       <Table className="ledger-table">
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                           <TableRow>
                             <TableHead className="w-10">No</TableHead>
                             <TableHead>Tanggal</TableHead>
