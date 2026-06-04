@@ -125,7 +125,7 @@ const LaporanPublik = () => {
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
                       <Table className="ledger-table">
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                           <TableRow>
                             <TableHead className="w-10">No</TableHead>
                             <TableHead>Tanggal</TableHead>
@@ -145,7 +145,7 @@ const LaporanPublik = () => {
                             <TableRow key={k.id}>
                               <TableCell>{idx + 1}</TableCell>
                               <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
-                              <TableCell className="max-w-[180px] truncate">{k.keterangan ?? "-"}</TableCell>
+                              <TableCell className="min-w-[150px]">{k.keterangan ?? "-"}</TableCell>
                               <TableCell>{k.kategori ?? "-"}</TableCell>
                               <TableCell><Badge variant="outline" className="text-xs capitalize">{k.metode}</Badge></TableCell>
                               <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
@@ -166,7 +166,7 @@ const LaporanPublik = () => {
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
                       <Table className="ledger-table">
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                           <TableRow>
                             <TableHead className="w-10">No</TableHead>
                             <TableHead>Tanggal</TableHead>
@@ -185,7 +185,7 @@ const LaporanPublik = () => {
                             <TableRow key={k.id}>
                               <TableCell>{idx + 1}</TableCell>
                               <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
-                              <TableCell className="max-w-[200px] truncate">{k.keterangan ?? "-"}</TableCell>
+                              <TableCell className="min-w-[150px]">{k.keterangan ?? "-"}</TableCell>
                               <TableCell>{k.kategori ?? "-"}</TableCell>
                               <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
                               <TableCell className="text-right font-semibold text-destructive">{k.jenis === "keluar" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
@@ -205,7 +205,7 @@ const LaporanPublik = () => {
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
                       <Table className="ledger-table">
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                           <TableRow>
                             <TableHead className="w-10">No</TableHead>
                             <TableHead>Tanggal</TableHead>
@@ -224,7 +224,7 @@ const LaporanPublik = () => {
                             <TableRow key={k.id}>
                               <TableCell>{idx + 1}</TableCell>
                               <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
-                              <TableCell className="max-w-[200px] truncate">{k.keterangan ?? "-"}</TableCell>
+                              <TableCell className="min-w-[150px]">{k.keterangan ?? "-"}</TableCell>
                               <TableCell>{k.kategori ?? "-"}</TableCell>
                               <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
                               <TableCell className="text-right font-semibold text-destructive">{k.jenis === "keluar" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
