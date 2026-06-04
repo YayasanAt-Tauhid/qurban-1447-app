@@ -145,7 +145,7 @@ const LaporanPublik = () => {
                             <TableRow key={k.id}>
                               <TableCell>{idx + 1}</TableCell>
                               <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
-                              <TableCell className="max-w-[180px] truncate">{k.keterangan ?? "-"}</TableCell>
+                              <TableCell className="min-w-[150px]">{k.keterangan ?? "-"}</TableCell>
                               <TableCell>{k.kategori ?? "-"}</TableCell>
                               <TableCell><Badge variant="outline" className="text-xs capitalize">{k.metode}</Badge></TableCell>
                               <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
@@ -185,7 +185,7 @@ const LaporanPublik = () => {
                             <TableRow key={k.id}>
                               <TableCell>{idx + 1}</TableCell>
                               <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
-                              <TableCell className="max-w-[200px] truncate">{k.keterangan ?? "-"}</TableCell>
+                              <TableCell className="min-w-[150px]">{k.keterangan ?? "-"}</TableCell>
                               <TableCell>{k.kategori ?? "-"}</TableCell>
                               <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
                               <TableCell className="text-right font-semibold text-destructive">{k.jenis === "keluar" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
@@ -224,7 +224,7 @@ const LaporanPublik = () => {
                             <TableRow key={k.id}>
                               <TableCell>{idx + 1}</TableCell>
                               <TableCell className="whitespace-nowrap">{formatTanggal(k.tanggal)}</TableCell>
-                              <TableCell className="max-w-[200px] truncate">{k.keterangan ?? "-"}</TableCell>
+                              <TableCell className="min-w-[150px]">{k.keterangan ?? "-"}</TableCell>
                               <TableCell>{k.kategori ?? "-"}</TableCell>
                               <TableCell className="text-right font-semibold text-success">{k.jenis === "masuk" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
                               <TableCell className="text-right font-semibold text-destructive">{k.jenis === "keluar" ? formatRupiah(Number(k.jumlah)) : ""}</TableCell>
